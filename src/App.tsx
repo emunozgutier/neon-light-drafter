@@ -12,14 +12,29 @@ function App() {
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('landscape');
   const sheetCount = 1;
 
-  // Initialize with a single 4-foot (48") horizontal tube centered on the default A4 Landscape Page A-1.
+  // Initialize with a single 4-foot (48") horizontal tube snapped and centered on the 6x5 grid workspace.
   // A4 Landscape: 11.69" width, 8.27" height.
-  // Center is: x = 11.69 * 40 / 2 = 233.8px, y = 8.27 * 40 / 2 = 165.4px.
+  // cols = 6, rows = 5, total grid width = 2805.6px, total grid height = 1654px.
+  // Center is: x = 1402.8px (snapped to 1400px), y = 827px (snapped to 830px).
   const [tubes, setTubes] = useState<Tube[]>(() => {
     const initialTubeId = generateId();
     const lengthPx = 48 * SCALE;
-    const centerX = (11.69 * SCALE) / 2;
-    const centerY = (8.27 * SCALE) / 2;
+    
+    const dimsInches = {
+      letter: { portrait: { w: 8.5, h: 11 }, landscape: { w: 11, h: 8.5 } },
+      a4: { portrait: { w: 8.27, h: 11.69 }, landscape: { w: 11.69, h: 8.27 } }
+    };
+    const activeDim = dimsInches['a4']['landscape'];
+    const totalWidthPx = 6 * activeDim.w * SCALE;
+    const totalHeightPx = 5 * activeDim.h * SCALE;
+
+    const rawCenterX = totalWidthPx / 2;
+    const rawCenterY = totalHeightPx / 2;
+
+    // Snap to the grid intersections (10px increments)
+    const centerX = Math.round(rawCenterX / 10) * 10;
+    const centerY = Math.round(rawCenterY / 10) * 10;
+
     return [
       {
         id: initialTubeId,

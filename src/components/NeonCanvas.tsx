@@ -142,6 +142,22 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
   }, []);
 
+  // Auto-center the canvas scroll viewport on initial mount so the default tube is fully visible
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      requestAnimationFrame(() => {
+        const scrollWidth = container.scrollWidth;
+        const scrollHeight = container.scrollHeight;
+        const clientWidth = container.clientWidth;
+        const clientHeight = container.clientHeight;
+
+        container.scrollLeft = (scrollWidth - clientWidth) / 2;
+        container.scrollTop = (scrollHeight - clientHeight) / 2;
+      });
+    }
+  }, []);
+
   // Imperative non-passive wheel event handler for zooming with mouse wheel (direct scrolling!)
   useEffect(() => {
     const container = containerRef.current;
