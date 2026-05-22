@@ -10,7 +10,20 @@ import './App.css';
 
 function App() {
   const tubes = useCanvas((state) => state.tubes);
-  const { sheetType, orientation, bendRadius, printRotation, isPreviewOpen } = useSideMenu();
+  const {
+    sheetType,
+    orientation,
+    bendRadius,
+    printRotation,
+    isPreviewOpen,
+    refImageSrc,
+    refImageOpacity,
+    refImageScaleX,
+    refImageScaleY,
+    refImageX,
+    refImageY,
+    refImageAspectRatio
+  } = useSideMenu();
 
   const [isPrintOpen, setIsPrintOpen] = useState(false);
 
@@ -78,6 +91,12 @@ function App() {
         })),
         true // Skip history on recovery
       );
+
+      // Translate reference image in sync
+      const currentX = useSideMenu.getState().refImageX;
+      const currentY = useSideMenu.getState().refImageY;
+      useSideMenu.getState().setRefImageX(Math.round(currentX + dx));
+      useSideMenu.getState().setRefImageY(Math.round(currentY + dy));
     }
   }, []);
 
@@ -101,6 +120,17 @@ function App() {
         >
           {/* Tubes outlines (Rotatable group) */}
           <g transform={`rotate(${printRotation}, ${widthPx / 2}, ${heightPx / 2})`}>
+            {refImageSrc && (
+              <image
+                href={refImageSrc}
+                x={refImageX}
+                y={refImageY}
+                width={1000 * refImageScaleX}
+                height={1000 * refImageScaleY * refImageAspectRatio}
+                opacity={refImageOpacity}
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
             {tubes.map((t) => {
               const { pathData } = calculateTubeGeometry(t.points, bendRadius);
               const strokeWidth = (t.diameter / 10) * 8;

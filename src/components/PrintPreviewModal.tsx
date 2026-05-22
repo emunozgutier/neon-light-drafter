@@ -16,7 +16,16 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
     bendRadius,
     useMetric,
     printRotation,
-    setPrintRotation
+    setPrintRotation,
+    refImageSrc,
+    refImageOpacity,
+    refImageScaleX,
+    refImageScaleY,
+    refImageX,
+    refImageY,
+    refImageAspectRatio,
+    setRefImageX,
+    setRefImageY
   } = useSideMenu();
 
   const {
@@ -99,6 +108,10 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
         }))
       }))
     );
+
+    // Also shift reference image in sync
+    setRefImageX(Math.round(refImageX + dx));
+    setRefImageY(Math.round(refImageY + dy));
   };
 
   // Automatically trigger auto-center when the modal mounts if the design is currently off-sheet/off-screen
@@ -143,6 +156,10 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
         }))
       }))
     , skipHistory);
+
+    // Translate reference image in sync
+    setRefImageX(Math.round(refImageX + dx));
+    setRefImageY(Math.round(refImageY + dy));
   };
 
   // Interactive mouse dragging of tubes right on the preview sheet SVG
@@ -335,6 +352,17 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
 
               {/* RENDER TUBES ON SHEET PREVIEW (Rotatable group) */}
               <g transform={`rotate(${printRotation}, ${widthPx / 2}, ${heightPx / 2})`}>
+                {refImageSrc && (
+                  <image
+                    href={refImageSrc}
+                    x={refImageX}
+                    y={refImageY}
+                    width={1000 * refImageScaleX}
+                    height={1000 * refImageScaleY * refImageAspectRatio}
+                    opacity={refImageOpacity}
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
                 {tubes.map(t => {
                   const { pathData } = calculateTubeGeometry(t.points, bendRadius);
                   const strokeWidth = (t.diameter / 10) * 8;

@@ -122,6 +122,7 @@ export interface CanvasState {
   saveHistory: () => void;
   undo: () => void;
   redo: () => void;
+  resetCanvas: () => void;
 }
 
 export const useCanvas = create<CanvasState>((set) => {
@@ -201,6 +202,62 @@ export const useCanvas = create<CanvasState>((set) => {
           future: newFuture,
           tubes: decodedTubes,
           selectedTubeId: nextSelectedId,
+        };
+      }),
+
+    resetCanvas: () =>
+      set(() => {
+        // Clear URL hash
+        window.location.hash = '';
+
+        const initialTubeId = generateId();
+        const lengthPx = 48 * SCALE;
+
+        const dimsInches = {
+          letter: { portrait: { w: 8.5, h: 11 }, landscape: { w: 11, h: 8.5 } },
+          a4: { portrait: { w: 8.27, h: 11.69 }, landscape: { w: 11.69, h: 8.27 } },
+        };
+        const activeDim = dimsInches['a4']['landscape'];
+        const totalWidthPx = 6 * activeDim.w * SCALE;
+        const totalHeightPx = 5 * activeDim.h * SCALE;
+
+        const rawCenterX = totalWidthPx / 2;
+        const rawCenterY = totalHeightPx / 2;
+
+        const centerX = Math.round(rawCenterX / SCALE) * SCALE;
+        const centerY = Math.round(rawCenterY / SCALE) * SCALE;
+
+        const defaultTubes = [
+          {
+            id: initialTubeId,
+            color: '#38bdf8',
+            diameter: 10,
+            maxLengthInches: 48,
+            points: [
+              {
+                id: generateId(),
+                x: centerX - lengthPx / 2,
+                y: centerY,
+                handleIn: { dx: -lengthPx / 6, dy: 0 },
+                handleOut: { dx: lengthPx / 6, dy: 0 },
+              },
+              {
+                id: generateId(),
+                x: centerX + lengthPx / 2,
+                y: centerY,
+                handleIn: { dx: -lengthPx / 6, dy: 0 },
+                handleOut: { dx: lengthPx / 6, dy: 0 },
+              },
+            ],
+          },
+        ];
+
+        return {
+          tubes: defaultTubes,
+          selectedTubeId: initialTubeId,
+          tool: 'select',
+          past: [],
+          future: [],
         };
       }),
   };
