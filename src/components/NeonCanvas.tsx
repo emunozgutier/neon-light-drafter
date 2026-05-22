@@ -255,6 +255,27 @@ export const NeonCanvas: React.FC = () => {
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
   }, []);
 
+  // Listen to custom viewport center trigger to focus the scroll view on Page C-4
+  useEffect(() => {
+    const handleCenterViewport = () => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const centerX = 3 * widthPx + widthPx / 2;
+      const centerY = 2 * heightPx + heightPx / 2;
+
+      requestAnimationFrame(() => {
+        const clientWidth = container.clientWidth;
+        const clientHeight = container.clientHeight;
+        container.scrollLeft = 80 + (80 + centerX) * zoom - clientWidth / 2;
+        container.scrollTop = 80 + (50 + centerY) * zoom - clientHeight / 2;
+      });
+    };
+
+    window.addEventListener('center-viewport-c4', handleCenterViewport);
+    return () => window.removeEventListener('center-viewport-c4', handleCenterViewport);
+  }, [zoom, widthPx, heightPx]);
+
   // Auto-center the canvas scroll viewport on initial mount/stable-coordinates-load so the design is fully visible
   useEffect(() => {
     if (hasCenteredRef.current) return;
@@ -292,7 +313,7 @@ export const NeonCanvas: React.FC = () => {
     if (minX === Infinity) return;
 
     // Check if the loaded tubes are off-sheet (still waiting for App's recovery translation hook)
-    const isOffSheet = maxX < 0 || minX > widthPx || maxY < 0 || minY > heightPx;
+    const isOffSheet = maxX < 0 || minX > 6 * widthPx || maxY < 0 || minY > 5 * heightPx;
     if (isOffSheet) return; // Wait for App.tsx to recover and center coordinates first
 
     const centerX = (minX + maxX) / 2;

@@ -67,8 +67,8 @@ function App() {
 
     if (minX === Infinity) return;
 
-    // Check if drawing is off the first printable sheet (Page A-1)
-    const isOffSheet = maxX < 0 || minX > widthPx || maxY < 0 || minY > heightPx;
+    // Check if drawing is off the entire 6x5 drafting grid board
+    const isOffSheet = maxX < 0 || minX > 6 * widthPx || maxY < 0 || minY > 5 * heightPx;
 
     if (isOffSheet) {
       const designCenterX = (minX + maxX) / 2;

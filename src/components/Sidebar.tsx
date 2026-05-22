@@ -13,8 +13,12 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
-  const { resetCanvas } = useCanvas();
+  const { tubes, setTubes, resetCanvas } = useCanvas();
   const {
+    sheetType,
+    orientation,
+    refImageX,
+    refImageY,
     setRefImageSrc,
     setRefImageX,
     setRefImageY,
@@ -35,6 +39,72 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
       setRefImageAspectRatio(1.0);
       setPrintRotation(0);
     }
+  };
+
+  const handleCenterDesign = () => {
+    if (tubes.length === 0) return;
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    tubes.forEach((t) => {
+      t.points.forEach((p) => {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      });
+    });
+
+    if (minX === Infinity) return;
+
+    // Centering calculations
+    const SCALE = 40;
+    const dimsInches = {
+      letter: { portrait: { w: 8.5, h: 11 }, landscape: { w: 11, h: 8.5 } },
+      a4: { portrait: { w: 8.27, h: 11.69 }, landscape: { w: 11.69, h: 8.27 } }
+    };
+    const activeDim = dimsInches[sheetType][orientation];
+    const widthPx = activeDim.w * SCALE;
+    const heightPx = activeDim.h * SCALE;
+
+    const designCenterX = (minX + maxX) / 2;
+    const designCenterY = (minY + maxY) / 2;
+
+    // Target Page C-4 center (row C = index 2, col 4 = index 3)
+    const targetCenterX = 3 * widthPx + widthPx / 2;
+    const targetCenterY = 2 * heightPx + heightPx / 2;
+
+    const dx = Math.round(targetCenterX - designCenterX);
+    const dy = Math.round(targetCenterY - designCenterY);
+
+    if (dx === 0 && dy === 0) {
+      window.dispatchEvent(new CustomEvent('center-viewport-c4'));
+      return;
+    }
+
+    // Translate coordinates
+    setTubes(
+      (prev) =>
+        prev.map((t) => ({
+          ...t,
+          points: t.points.map((p) => ({
+            ...p,
+            x: Math.round(p.x + dx),
+            y: Math.round(p.y + dy)
+          }))
+        })),
+      false // Save to history for undoability!
+    );
+
+    // Shift background tracing image in sync
+    setRefImageX(Math.round(refImageX + dx));
+    setRefImageY(Math.round(refImageY + dy));
+
+    // Fire custom viewport centering event to refocus the scroll view on Page C-4
+    window.dispatchEvent(new CustomEvent('center-viewport-c4'));
   };
 
   return (
@@ -73,42 +143,82 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
           Professional glass-bending layout & material calculator
         </p>
 
-        {/* Start New Draft Button */}
-        <button
-          onClick={handleNewDraft}
-          style={{
-            marginTop: '16px',
-            width: '100%',
-            height: '34px',
-            borderRadius: '6px',
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid var(--border-glass)',
-            color: 'var(--text-primary)',
-            fontSize: '11.5px',
-            fontWeight: 'bold',
-            letterSpacing: '0.5px',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
-            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-            e.currentTarget.style.color = '#f87171';
-            e.currentTarget.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.15)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
-            e.currentTarget.style.borderColor = 'var(--border-glass)';
-            e.currentTarget.style.color = 'var(--text-primary)';
-            e.currentTarget.style.boxShadow = 'none';
-          }}
-        >
-          📄 Start New Draft
-        </button>
+        {/* Quick Actions Row */}
+        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+          {/* Start New Draft Button */}
+          <button
+            onClick={handleNewDraft}
+            title="Clear canvas and start a new layout"
+            style={{
+              flex: 1,
+              height: '34px',
+              borderRadius: '6px',
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid var(--border-glass)',
+              color: 'var(--text-primary)',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              letterSpacing: '0.3px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+              e.currentTarget.style.color = '#f87171';
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+              e.currentTarget.style.borderColor = 'var(--border-glass)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            📄 New Draft
+          </button>
+
+          {/* Center Neon Design Button */}
+          <button
+            onClick={handleCenterDesign}
+            title="Center drawing on Page C-4"
+            style={{
+              flex: 1,
+              height: '34px',
+              borderRadius: '6px',
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid var(--border-glass)',
+              color: 'var(--text-primary)',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              letterSpacing: '0.3px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.4)';
+              e.currentTarget.style.color = '#e9d5ff';
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(192, 132, 252, 0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+              e.currentTarget.style.borderColor = 'var(--border-glass)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            🎯 Center Design
+          </button>
+        </div>
       </div>
 
 
