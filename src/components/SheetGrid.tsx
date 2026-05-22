@@ -5,11 +5,13 @@ interface SheetGridProps {
   sheetType: 'letter' | 'a4';
   orientation: 'portrait' | 'landscape';
   sheetCount: number;
+  useMetric?: boolean;
 }
 
 export const SheetGrid: React.FC<SheetGridProps> = ({
   sheetType,
-  orientation
+  orientation,
+  useMetric = false
 }) => {
   // Dimensions in inches
   const dimsInches = {
@@ -30,18 +32,54 @@ export const SheetGrid: React.FC<SheetGridProps> = ({
   // Helper to generate row letters: 0 -> A, 1 -> B, 2 -> C...
   const getRowLetter = (r: number) => String.fromCharCode(65 + r);
 
+  // Dynamic grid pattern spacing
+  const cmPx = SCALE / 2.54; // ~15.748 px
+  const patternSize = useMetric ? cmPx : 40;
+  const subdivisions = 10;
+  const step = patternSize / subdivisions;
+
+  // Memoized minor lines representation
+  const minorPaths = React.useMemo(() => {
+    let d = '';
+    // Vertical minor lines
+    for (let i = 1; i < subdivisions; i++) {
+      const coord = i * step;
+      d += `M ${coord} 0 L ${coord} ${patternSize} `;
+    }
+    // Horizontal minor lines
+    for (let i = 1; i < subdivisions; i++) {
+      const coord = i * step;
+      d += `M 0 ${coord} L ${patternSize} ${coord} `;
+    }
+    return d;
+  }, [patternSize, step, subdivisions]);
+
+  const patternId = useMetric ? 'grid-pattern-metric' : 'grid-pattern-imperial';
+
   return (
     <g className="sheet-grid-group">
       <defs>
-        {/* 1-inch (40px) Grid Pattern with 0.1-inch subdivisions */}
-        <pattern id="grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
-          {/* Minor lines every 4px (0.1 inch) */}
-          <path d="M 4 0 L 4 40 M 8 0 L 8 40 M 12 0 L 12 40 M 16 0 L 16 40 M 20 0 L 20 40 M 24 0 L 24 40 M 28 0 L 28 40 M 32 0 L 32 40 M 36 0 L 36 40" 
-                fill="none" stroke="var(--paper-grid-minor)" strokeWidth="0.5" />
-          <path d="M 0 4 L 40 4 M 0 8 L 40 8 M 0 12 L 40 12 M 0 16 L 40 16 M 0 20 L 40 20 M 0 24 L 40 24 M 0 28 L 40 28 M 0 32 L 40 32 M 0 36 L 40 36" 
-                fill="none" stroke="var(--paper-grid-minor)" strokeWidth="0.5" />
-          {/* Major lines every 40px (1 inch) */}
-          <path d="M 40 0 L 40 40 M 0 40 L 40 40" fill="none" stroke="var(--paper-grid-major)" strokeWidth="1" />
+        {/* Dynamic Grid Pattern (Imperial or Metric) */}
+        <pattern 
+          id={patternId} 
+          width={patternSize} 
+          height={patternSize} 
+          patternUnits="userSpaceOnUse"
+        >
+          {/* Minor lines (0.1 inch or 1 mm) */}
+          <path 
+            d={minorPaths} 
+            fill="none" 
+            stroke="var(--paper-grid-minor)" 
+            strokeWidth="0.5" 
+          />
+          {/* Major lines (1 inch or 1 cm) */}
+          <path 
+            d={`M ${patternSize} 0 L ${patternSize} ${patternSize} M 0 ${patternSize} L ${patternSize} ${patternSize}`} 
+            fill="none" 
+            stroke="var(--paper-grid-major)" 
+            strokeWidth="1" 
+          />
         </pattern>
       </defs>
 
@@ -49,7 +87,7 @@ export const SheetGrid: React.FC<SheetGridProps> = ({
       <rect
         width={totalWidth}
         height={totalHeight}
-        fill="url(#grid-pattern)"
+        fill={`url(#${patternId})`}
       />
 
       {/* 2. Vertical Page Break dashed lines */}
@@ -117,7 +155,10 @@ export const SheetGrid: React.FC<SheetGridProps> = ({
                 letterSpacing="1px"
                 style={{ pointerEvents: 'none', userSelect: 'none' }}
               >
-                PAGE {getRowLetter(r)}-{c + 1} ({activeDim.w}" × {activeDim.h}")
+                PAGE {getRowLetter(r)}-{c + 1} {useMetric 
+                  ? `(${(activeDim.w * 2.54).toFixed(1)} cm × ${(activeDim.h * 2.54).toFixed(1)} cm)` 
+                  : `(${activeDim.w}" × ${activeDim.h}")`
+                }
               </text>
             );
           })}

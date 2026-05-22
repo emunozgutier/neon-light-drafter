@@ -152,4 +152,36 @@ body {
   r: 9;
 }
 
+/* Pulsing bounding box outline for tracing blueprint image alignment */
+@keyframes image-border-glow {
+  0%, 100% {
+    opacity: 0.5;
+    stroke: rgba(192, 132, 252, 0.4);
+    filter: drop-shadow(0 0 2px rgba(192, 132, 252, 0.2));
+  }
+  50% {
+    opacity: 1;
+    stroke: rgba(192, 132, 252, 0.95);
+    filter: drop-shadow(0 0 8px rgba(192, 132, 252, 0.6));
+  }
+}
 
+/* Floating Canvas Lock Button interactive stylings */
+.canvas-lock-btn {
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.canvas-lock-btn:hover {
+  opacity: 1;
+}
+
+.canvas-lock-btn circle {
+  transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+.canvas-lock-btn:hover circle {
+  fill: var(--bg-workbench);
+  stroke: #ffffff;
+  stroke-width: 2px;
+}

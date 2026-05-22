@@ -31,6 +31,10 @@ interface SidebarProps {
   setRefImageX: (x: number) => void;
   refImageY: number;
   setRefImageY: (y: number) => void;
+  isRefImageLocked: boolean;
+  setIsRefImageLocked: (l: boolean) => void;
+  refImageAspectRatio: number;
+  setRefImageAspectRatio: (r: number) => void;
 }
 
 // Curated high-fidelity neon colors
@@ -73,7 +77,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   refImageX,
   setRefImageX,
   refImageY,
-  setRefImageY
+  setRefImageY,
+  isRefImageLocked,
+  setIsRefImageLocked,
+  setRefImageAspectRatio
 }) => {
   const selectedTube = tubes.find(t => t.id === selectedTubeId);
 
@@ -602,7 +609,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   if (file) {
                     const reader = new FileReader();
                     reader.onload = (event) => {
-                      setRefImageSrc(event.target?.result as string);
+                      const src = event.target?.result as string;
+                      setRefImageSrc(src);
+                      
+                      // Calculate and store aspect ratio
+                      const img = new Image();
+                      img.onload = () => {
+                        if (img.width > 0) {
+                          setRefImageAspectRatio(img.height / img.width);
+                        }
+                      };
+                      img.src = src;
+                      
+                      // Automatically unlock so they can drag immediately
+                      setIsRefImageLocked(false);
                     };
                     reader.readAsDataURL(file);
                   }
@@ -652,6 +672,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 🗑️
               </button>
             </div>
+
+            {/* Lock / Unlock Toggle Button */}
+            <button
+              onClick={() => setIsRefImageLocked(!isRefImageLocked)}
+              style={{
+                width: '100%',
+                height: '36px',
+                borderRadius: '6px',
+                backgroundColor: isRefImageLocked 
+                  ? 'rgba(255,255,255,0.03)' 
+                  : 'rgba(192, 132, 252, 0.12)',
+                border: `1px solid ${isRefImageLocked ? 'var(--border-glass)' : 'var(--accent-purple)'}`,
+                color: isRefImageLocked ? 'var(--text-secondary)' : '#ffffff',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease',
+                boxShadow: isRefImageLocked ? 'none' : '0 0 12px rgba(192, 132, 252, 0.25)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent-purple)';
+                if (isRefImageLocked) {
+                  e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.05)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = isRefImageLocked ? 'var(--border-glass)' : 'var(--accent-purple)';
+                e.currentTarget.style.backgroundColor = isRefImageLocked 
+                  ? 'rgba(255,255,255,0.03)' 
+                  : 'rgba(192, 132, 252, 0.12)';
+              }}
+            >
+              <span>{isRefImageLocked ? '🔒 Tracing Guide Locked' : '🔓 Reposition Guide (Drag Canvas)'}</span>
+            </button>
 
             {/* Opacity slider */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

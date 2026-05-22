@@ -1,11 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { NeonCanvas } from './components/NeonCanvas';
 import type { Tube } from './utils/geometry';
 import { generateId, SCALE } from './utils/geometry';
 import './App.css';
 
+// Encode tubes to a compressed base64 string
+const encodeTubes = (tubesList: Tube[]): string => {
+  try {
+    const compact = tubesList.map(t => ({
+      c: t.color,
+      d: t.diameter,
+      m: t.maxLengthInches,
+      p: t.points.map(p => ({
+        x: Math.round(p.x),
+        y: Math.round(p.y),
+        i: p.handleIn ? { x: Math.round(p.handleIn.dx), y: Math.round(p.handleIn.dy) } : undefined,
+        o: p.handleOut ? { x: Math.round(p.handleOut.dx), y: Math.round(p.handleOut.dy) } : undefined
+      }))
+    }));
+    const jsonStr = JSON.stringify(compact);
+    return btoa(unescape(encodeURIComponent(jsonStr)));
+  } catch (e) {
+    console.error('Error encoding tubes', e);
+    return '';
+  }
+};
 
+// Decode tubes from a base64 string
+const decodeTubes = (hash: string): Tube[] | null => {
+  if (!hash) return null;
+  try {
+    const jsonStr = decodeURIComponent(escape(atob(hash)));
+    const compact = JSON.parse(jsonStr);
+    if (!Array.isArray(compact)) return null;
+    
+    return compact.map((t: any) => ({
+      id: generateId(),
+      color: t.c || '#38bdf8',
+      diameter: t.d || 10,
+      maxLengthInches: t.m || 48,
+      points: t.p.map((p: any) => ({
+        id: generateId(),
+        x: p.x,
+        y: p.y,
+        handleIn: p.i ? { dx: p.i.x, dy: p.i.y } : undefined,
+        handleOut: p.o ? { dx: p.o.x, dy: p.o.y } : undefined
+      }))
+    }));
+  } catch (e) {
+    console.error('Error decoding tubes from URL', e);
+    return null;
+  }
+};
 
 function App() {
   const [sheetType, setSheetType] = useState<'letter' | 'a4'>('a4');
@@ -17,6 +64,13 @@ function App() {
   // cols = 6, rows = 5, total grid width = 2805.6px, total grid height = 1654px.
   // Center is: x = 1402.8px (snapped to 1400px), y = 827px (snapped to 830px).
   const [tubes, setTubes] = useState<Tube[]>(() => {
+    // Check URL hash first for project data
+    const hash = window.location.hash.substring(1);
+    const decoded = decodeTubes(hash);
+    if (decoded && decoded.length > 0) {
+      return decoded;
+    }
+
     const initialTubeId = generateId();
     const lengthPx = 48 * SCALE;
     
@@ -31,9 +85,9 @@ function App() {
     const rawCenterX = totalWidthPx / 2;
     const rawCenterY = totalHeightPx / 2;
 
-    // Snap to the grid intersections (10px increments)
-    const centerX = Math.round(rawCenterX / 10) * 10;
-    const centerY = Math.round(rawCenterY / 10) * 10;
+    // Snap to the 1-inch grid intersections (SCALE increments)
+    const centerX = Math.round(rawCenterX / SCALE) * SCALE;
+    const centerY = Math.round(rawCenterY / SCALE) * SCALE;
 
     return [
       {
@@ -61,6 +115,16 @@ function App() {
     ];
   });
 
+  // Sync tubes in real-time to URL hash dynamically
+  useEffect(() => {
+    const encoded = encodeTubes(tubes);
+    if (encoded) {
+      window.history.replaceState(null, '', '#' + encoded);
+    } else {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [tubes]);
+
   const [selectedTubeId, setSelectedTubeId] = useState<string | null>(() => {
     return tubes[0]?.id || null;
   });
@@ -78,6 +142,8 @@ function App() {
   const [refImageScale, setRefImageScale] = useState<number>(1.0);
   const [refImageX, setRefImageX] = useState<number>(0);
   const [refImageY, setRefImageY] = useState<number>(0);
+  const [isRefImageLocked, setIsRefImageLocked] = useState<boolean>(true);
+  const [refImageAspectRatio, setRefImageAspectRatio] = useState<number>(1.0);
 
   return (
     <div className="app-container">
@@ -111,6 +177,10 @@ function App() {
         setRefImageX={setRefImageX}
         refImageY={refImageY}
         setRefImageY={setRefImageY}
+        isRefImageLocked={isRefImageLocked}
+        setIsRefImageLocked={setIsRefImageLocked}
+        refImageAspectRatio={refImageAspectRatio}
+        setRefImageAspectRatio={setRefImageAspectRatio}
       />
 
       {/* Interactive Vector Editor Workspace */}
@@ -131,7 +201,12 @@ function App() {
         refImageOpacity={refImageOpacity}
         refImageScale={refImageScale}
         refImageX={refImageX}
+        setRefImageX={setRefImageX}
         refImageY={refImageY}
+        setRefImageY={setRefImageY}
+        isRefImageLocked={isRefImageLocked}
+        setIsRefImageLocked={setIsRefImageLocked}
+        refImageAspectRatio={refImageAspectRatio}
       />
     </div>
   );

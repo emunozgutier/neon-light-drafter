@@ -20,7 +20,12 @@ interface NeonCanvasProps {
   refImageOpacity: number;
   refImageScale: number;
   refImageX: number;
+  setRefImageX: (x: number) => void;
   refImageY: number;
+  setRefImageY: (y: number) => void;
+  isRefImageLocked: boolean;
+  setIsRefImageLocked: (l: boolean) => void;
+  refImageAspectRatio: number;
 }
 
 export const NeonCanvas: React.FC<NeonCanvasProps> = ({
@@ -40,7 +45,12 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
   refImageOpacity,
   refImageScale,
   refImageX,
-  refImageY
+  setRefImageX,
+  refImageY,
+  setRefImageY,
+  isRefImageLocked,
+  setIsRefImageLocked,
+  refImageAspectRatio
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -102,6 +112,10 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
     targetPointId: string;
     weldPos: { x: number; y: number };
   } | null>(null);
+
+  // Tracing image dragging states
+  const [isDraggingImage, setIsDraggingImage] = useState<boolean>(false);
+  const [imageDragStart, setImageDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Helper: Get local SVG coordinates from mouse event
   const getSVGCoords = (e: React.MouseEvent<SVGSVGElement>): { x: number; y: number } => {
@@ -306,6 +320,20 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
     };
   }, []);
 
+  const handleImageMouseDown = (e: React.MouseEvent<SVGImageElement>) => {
+    if (isRefImageLocked) return;
+    if (e.button !== 0) return; // Left click only
+    e.stopPropagation();
+    e.preventDefault();
+    
+    setIsDraggingImage(true);
+    const mousePos = getSVGCoords(e as unknown as React.MouseEvent<SVGSVGElement>);
+    setImageDragStart({
+      x: mousePos.x - refImageX,
+      y: mousePos.y - refImageY
+    });
+  };
+
   // Handle segment hovering and dragging interactions
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (isPanning) {
@@ -315,6 +343,13 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
         containerRef.current.scrollLeft = panScrollStart.left - dx;
         containerRef.current.scrollTop = panScrollStart.top - dy;
       }
+      return;
+    }
+
+    if (isDraggingImage && !isRefImageLocked) {
+      const mousePos = getSVGCoords(e);
+      setRefImageX(mousePos.x - imageDragStart.x);
+      setRefImageY(mousePos.y - imageDragStart.y);
       return;
     }
 
@@ -361,9 +396,9 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
       let newX = mousePos.x;
       let newY = mousePos.y;
 
-      // Grid Snapping (snap to 0.25 inch / 10px subdivisions)
+      // Grid Snapping (snap to 1.0 inch or 1.0 cm subdivisions depending on useMetric)
       if (snapToGrid) {
-        const snapUnit = 0.25 * SCALE; // 10px
+        const snapUnit = useMetric ? (SCALE / 2.54) : (1.0 * SCALE);
         newX = Math.round(newX / snapUnit) * snapUnit;
         newY = Math.round(newY / snapUnit) * snapUnit;
       }
@@ -576,13 +611,25 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
     const mousePos = getSVGCoords(e);
 
     // If clicking background and tool is 'add', spawn a new tube
-    if (e.target === svgRef.current || (e.target as SVGElement).classList.contains('sheet-grid-group')) {
+    if (e.target === svgRef.current || (e.target as SVGElement).closest('.sheet-grid-group')) {
       setSelectedTubeId(null);
       
       if (tool === 'add') {
         const id = generateId();
         // Create a horizontal 4 feet (48") tube centered on the click
         const lengthPx = 48 * SCALE;
+        
+        let x1 = mousePos.x - lengthPx / 2;
+        let x2 = mousePos.x + lengthPx / 2;
+        let y = mousePos.y;
+        
+        if (snapToGrid) {
+          const snapUnit = useMetric ? (SCALE / 2.54) : (1.0 * SCALE);
+          x1 = Math.round(x1 / snapUnit) * snapUnit;
+          x2 = Math.round(x2 / snapUnit) * snapUnit;
+          y = Math.round(y / snapUnit) * snapUnit;
+        }
+
         const newTube: Tube = {
           id,
           color: '#38bdf8', // Neon blue default
@@ -591,15 +638,15 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           points: [
             {
               id: generateId(),
-              x: mousePos.x - lengthPx / 2,
-              y: mousePos.y,
+              x: x1,
+              y: y,
               handleIn: { dx: -lengthPx / 6, dy: 0 },
               handleOut: { dx: lengthPx / 6, dy: 0 }
             },
             {
               id: generateId(),
-              x: mousePos.x + lengthPx / 2,
-              y: mousePos.y,
+              x: x2,
+              y: y,
               handleIn: { dx: -lengthPx / 6, dy: 0 },
               handleOut: { dx: lengthPx / 6, dy: 0 }
             }
@@ -614,6 +661,11 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
   const handleMouseUp = () => {
     if (isPanning) {
       setIsPanning(false);
+      return;
+    }
+
+    if (isDraggingImage) {
+      setIsDraggingImage(false);
       return;
     }
 
@@ -1294,18 +1346,100 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
             sheetType={sheetType}
             orientation={orientation}
             sheetCount={sheetCount}
+            useMetric={useMetric}
           />
           
           {/* Reference Blueprint overlay image tracing guide */}
           {refImageSrc && (
-            <image
-              href={refImageSrc}
-              x={refImageX}
-              y={refImageY}
-              width={1000 * refImageScale}
-              opacity={refImageOpacity}
-              style={{ pointerEvents: 'none' }}
-            />
+            <g>
+              <image
+                href={refImageSrc}
+                x={refImageX}
+                y={refImageY}
+                width={1000 * refImageScale}
+                height={1000 * refImageScale * refImageAspectRatio}
+                opacity={refImageOpacity}
+                style={{
+                  pointerEvents: isRefImageLocked ? 'none' : 'auto',
+                  cursor: isRefImageLocked ? 'default' : 'move'
+                }}
+                onMouseDown={handleImageMouseDown}
+              />
+              {!isRefImageLocked && (
+                <>
+                  <g style={{ pointerEvents: 'none' }}>
+                    {/* Subtle pulsing background outline */}
+                    <rect
+                      x={refImageX}
+                      y={refImageY}
+                      width={1000 * refImageScale}
+                      height={1000 * refImageScale * refImageAspectRatio}
+                      fill="rgba(192, 132, 252, 0.03)"
+                      stroke="var(--accent-purple)"
+                      strokeWidth="2"
+                      strokeDasharray="6 4"
+                      style={{
+                        animation: 'image-border-glow 2s infinite ease-in-out'
+                      }}
+                    />
+                    
+                    {/* Helper Badge to guide the user */}
+                    <g transform={`translate(${refImageX + 12}, ${refImageY + 28})`}>
+                      <rect
+                        width="180"
+                        height="26"
+                        rx="4"
+                        fill="var(--bg-sidebar)"
+                        stroke="var(--accent-purple)"
+                        strokeWidth="1"
+                        opacity="0.9"
+                      />
+                      <text
+                        x="90"
+                        y="16.5"
+                        textAnchor="middle"
+                        fill="#ffffff"
+                        fontSize="11"
+                        fontWeight="600"
+                      >
+                        🖐️ Drag Image to Reposition
+                      </text>
+                    </g>
+                  </g>
+
+                  {/* Floating Lock Button on Canvas (Interactive!) */}
+                  <g 
+                    className="canvas-lock-btn"
+                    transform={`translate(${refImageX + 1000 * refImageScale - 36}, ${refImageY + 12})`}
+                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setIsRefImageLocked(true);
+                    }}
+                  >
+                    <title>Lock Tracing Guide</title>
+                    <circle
+                      cx="14"
+                      cy="14"
+                      r="16"
+                      fill="var(--bg-sidebar)"
+                      stroke="var(--accent-purple)"
+                      strokeWidth="1.5"
+                      style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))' }}
+                    />
+                    <text
+                      x="14"
+                      y="19"
+                      textAnchor="middle"
+                      fontSize="14"
+                    >
+                      🔒
+                    </text>
+                  </g>
+                </>
+              )}
+            </g>
           )}
           
           {/* Ghost point node projection */}
