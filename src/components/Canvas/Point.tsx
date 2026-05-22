@@ -14,6 +14,7 @@ interface PointProps {
   onDeleteNode: (tubeId: string, pointId: string) => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  isFocused?: boolean;
 }
 
 export const Point: React.FC<PointProps> = ({
@@ -29,6 +30,7 @@ export const Point: React.FC<PointProps> = ({
   onDeleteNode,
   onMouseEnter,
   onMouseLeave,
+  isFocused,
 }) => {
   const isNodeHovered = draggingNode?.pointId === pt.id;
   const isHandleHovered = draggingHandle?.pointId === pt.id;
@@ -43,9 +45,64 @@ export const Point: React.FC<PointProps> = ({
   const outX = pt.x + (pt.handleOut?.dx ?? 0);
   const outY = pt.y + (pt.handleOut?.dy ?? 0);
 
+  // Calculate dynamic bounding box coordinates for edit mode dashed rectangle, rotated to match handles
+  let angle = 0;
+  if (hasHandleOut && index < totalPoints - 1 && pt.handleOut) {
+    angle = Math.atan2(pt.handleOut.dy, pt.handleOut.dx);
+  } else if (hasHandleIn && index > 0 && pt.handleIn) {
+    angle = Math.atan2(-pt.handleIn.dy, -pt.handleIn.dx);
+  }
+
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
+  // Project global point into local space rotated by angle centered at pt
+  const toLocal = (gx: number, gy: number) => {
+    const dx = gx - pt.x;
+    const dy = gy - pt.y;
+    return {
+      x: dx * cos + dy * sin,
+      y: -dx * sin + dy * cos,
+    };
+  };
+
+  const pad = isEnd ? 10 : 8;
+  const localXCoords: number[] = [-pad, pad];
+  const localYCoords: number[] = [-pad, pad];
+
+  if (totalPoints > 2) {
+    const delLocal = toLocal(pt.x + 11, pt.y - 11);
+    localXCoords.push(delLocal.x - 10, delLocal.x + 10);
+    localYCoords.push(delLocal.y - 10, delLocal.y + 10);
+  }
+
+  if (hasHandleIn && index > 0) {
+    const inLocal = toLocal(inX, inY);
+    localXCoords.push(inLocal.x - 8, inLocal.x + 8);
+    localYCoords.push(inLocal.y - 8, inLocal.y + 8);
+  }
+
+  if (hasHandleOut && index < totalPoints - 1) {
+    const outLocal = toLocal(outX, outY);
+    localXCoords.push(outLocal.x - 8, outLocal.x + 8);
+    localYCoords.push(outLocal.y - 8, outLocal.y + 8);
+  }
+
+  const minX = Math.min(...localXCoords);
+  const maxX = Math.max(...localXCoords);
+  const minY = Math.min(...localYCoords);
+  const maxY = Math.max(...localYCoords);
+
+  const rectX = minX - 6;
+  const rectY = minY - 6;
+  const rectW = (maxX - minX) + 12;
+  const rectH = (maxY - minY) + 12;
+
+  const angleInDegrees = (angle * 180) / Math.PI;
+
   return (
     <g
-      className={`point-control-group ${isDragging ? 'active' : ''}`}
+      className={`point-control-group ${isDragging || isFocused ? 'active' : ''}`}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -57,6 +114,36 @@ export const Point: React.FC<PointProps> = ({
         fill="none"
         pointerEvents="all"
         style={{ cursor: 'pointer' }}
+      />
+
+      {/* Dashed Circle: shown when NOT in edit mode */}
+      <circle
+        className="non-edit-dash-indicator"
+        cx={pt.x}
+        cy={pt.y}
+        r={isEnd ? 12 : 10}
+        fill="none"
+        stroke={isEnd ? "#10b981" : "#38bdf8"}
+        strokeWidth="1.2"
+        strokeDasharray="3 3"
+        style={{ pointerEvents: 'none' }}
+      />
+
+      {/* Dashed Rectangle: shown when in edit mode */}
+      <rect
+        className="edit-dash-indicator"
+        x={rectX}
+        y={rectY}
+        width={rectW}
+        height={rectH}
+        rx="6"
+        ry="6"
+        fill="none"
+        stroke="rgba(192, 132, 252, 0.7)"
+        strokeWidth="1.2"
+        strokeDasharray="4 3"
+        transform={`translate(${pt.x}, ${pt.y}) rotate(${angleInDegrees})`}
+        style={{ pointerEvents: 'none' }}
       />
 
       {/* Invisible thick line and circle catchers for handles to bridge the hover space */}

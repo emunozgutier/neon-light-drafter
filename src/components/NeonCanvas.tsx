@@ -104,7 +104,12 @@ export const NeonCanvas: React.FC = () => {
 
   // Point hover/edit mode tracking to prevent adding points on click
   const [isHoveringPoint, setIsHoveringPoint] = useState<boolean>(false);
+  const [hoverDisabled, setHoverDisabled] = useState<boolean>(false);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Overlapping points arrow key selection states
+  const [nearbyPoints, setNearbyPoints] = useState<string[]>([]);
+  const [activeCycleIndex, setActiveCycleIndex] = useState<number>(-1);
 
   const handlePointMouseEnter = () => {
     if (hoverTimeoutRef.current) {
@@ -163,6 +168,23 @@ export const NeonCanvas: React.FC = () => {
         setTubes(prev => prev.filter(t => t.id !== selectedTubeId));
         setSelectedTubeId(null);
       }
+      // Escape key to dismiss edit mode instantly
+      if (e.key === 'Escape') {
+        setIsHoveringPoint(false);
+        setHoverDisabled(true);
+        setDraggingNode(null);
+        setDraggingHandle(null);
+      }
+      // Arrow keys to cycle overlapping points selection
+      if (nearbyPoints.length > 1) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          setActiveCycleIndex(prev => (prev + 1) % nearbyPoints.length);
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          setActiveCycleIndex(prev => (prev - 1 + nearbyPoints.length) % nearbyPoints.length);
+        }
+      }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -177,7 +199,7 @@ export const NeonCanvas: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedTubeId, setSelectedTubeId, setTubes]);
+  }, [selectedTubeId, setSelectedTubeId, setTubes, nearbyPoints, setActiveCycleIndex]);
 
   // Prevent panning/space from getting stuck if browser window loses focus
   useEffect(() => {
@@ -353,6 +375,10 @@ export const NeonCanvas: React.FC = () => {
 
   // Handle segment hovering and dragging interactions
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (hoverDisabled) {
+      setHoverDisabled(false);
+    }
+
     if (isPanning) {
       if (containerRef.current) {
         const dx = e.clientX - panStart.x;
@@ -371,6 +397,40 @@ export const NeonCanvas: React.FC = () => {
     }
 
     const mousePos = getSVGCoords(e);
+
+    // Overlapping points detection
+    if (selectedTubeId && !draggingNode && !draggingHandle) {
+      const selectedTube = tubes.find(t => t.id === selectedTubeId);
+      if (selectedTube) {
+        const nearby = selectedTube.points
+          .filter(pt => dist(mousePos, pt) <= 30)
+          .map(pt => pt.id);
+
+        const nearbyIdsStr = nearby.join(',');
+        const currentIdsStr = nearbyPoints.join(',');
+
+        if (nearbyIdsStr !== currentIdsStr) {
+          setNearbyPoints(nearby);
+          if (nearby.length > 1) {
+            const curFocusedId = activeCycleIndex >= 0 && activeCycleIndex < nearbyPoints.length ? nearbyPoints[activeCycleIndex] : null;
+            const nextIndex = curFocusedId ? nearby.indexOf(curFocusedId) : 0;
+            setActiveCycleIndex(nextIndex >= 0 ? nextIndex : 0);
+          } else {
+            setActiveCycleIndex(-1);
+          }
+        }
+      } else {
+        if (nearbyPoints.length > 0) {
+          setNearbyPoints([]);
+          setActiveCycleIndex(-1);
+        }
+      }
+    } else {
+      if (nearbyPoints.length > 0) {
+        setNearbyPoints([]);
+        setActiveCycleIndex(-1);
+      }
+    }
 
     // 1. DRAGGING HANDLE INTERACTION
     if (draggingHandle) {
@@ -1029,6 +1089,11 @@ export const NeonCanvas: React.FC = () => {
                   onDeleteNode={handleDeleteNode}
                   onMouseEnter={handlePointMouseEnter}
                   onMouseLeave={handlePointMouseLeave}
+                  isFocused={
+                    activeCycleIndex >= 0 &&
+                    activeCycleIndex < nearbyPoints.length &&
+                    nearbyPoints[activeCycleIndex] === pt.id
+                  }
                 />
 
                 {/* Drag Entire Tube Button (Tactile Grip Handle) - Rendered only at Endpoints (Start and End nodes) */}
@@ -1105,6 +1170,7 @@ export const NeonCanvas: React.FC = () => {
     }}>
       <svg
         ref={svgRef}
+        className={`neon-svg-canvas ${hoverDisabled ? 'disable-hover' : ''}`}
         width={(totalWidth + 160) * zoom}
         height={(totalHeight + 120) * zoom}
         viewBox={`0 0 ${totalWidth + 160} ${totalHeight + 120}`}
@@ -1339,6 +1405,34 @@ export const NeonCanvas: React.FC = () => {
           Reset
         </button>
       </div>
+
+      {/* Overlapping points keyboard selection instruction badge */}
+      {nearbyPoints.length > 1 && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(192, 132, 252, 0.25)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(192, 132, 252, 0.4)',
+          color: '#e9d5ff',
+          padding: '8px 16px',
+          borderRadius: '30px',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          pointerEvents: 'none',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          zIndex: 100,
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px'
+        }}>
+          <span>🎯 {nearbyPoints.length} points overlapping. Press arrow keys ◄ / ► to cycle selection ({activeCycleIndex + 1}/{nearbyPoints.length})</span>
+        </div>
+      )}
     </div>
   );
 };

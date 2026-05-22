@@ -189,7 +189,8 @@ body {
 /* Interactive Point Control Group Styles (Hides handle knobs, lines, and delete button unless hovered/active) */
 .point-control-group .handle-line,
 .point-control-group .handle-knob,
-.point-control-group .delete-node-btn {
+.point-control-group .delete-node-btn,
+.point-control-group .edit-dash-indicator {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -197,14 +198,31 @@ body {
   transition-delay: 0.8s;
 }
 
-.point-control-group:hover .handle-line,
-.point-control-group:hover .handle-knob,
-.point-control-group:hover .delete-node-btn,
+.neon-svg-canvas:not(.disable-hover) .point-control-group:hover .handle-line,
+.neon-svg-canvas:not(.disable-hover) .point-control-group:hover .handle-knob,
+.neon-svg-canvas:not(.disable-hover) .point-control-group:hover .delete-node-btn,
+.neon-svg-canvas:not(.disable-hover) .point-control-group:hover .edit-dash-indicator,
 .point-control-group.active .handle-line,
 .point-control-group.active .handle-knob,
-.point-control-group.active .delete-node-btn {
+.point-control-group.active .delete-node-btn,
+.point-control-group.active .edit-dash-indicator {
   opacity: 1;
   pointer-events: auto;
   /* Show instantly (0s delay) when hovered or active */
+  transition-delay: 0s;
+}
+
+/* Dashed circle indicator when NOT in edit mode */
+.point-control-group .non-edit-dash-indicator {
+  opacity: 0.55;
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 800ms grace period: wait before fading standard dashed circle back in */
+  transition-delay: 0.8s;
+}
+
+.neon-svg-canvas:not(.disable-hover) .point-control-group:hover .non-edit-dash-indicator,
+.point-control-group.active .non-edit-dash-indicator {
+  opacity: 0;
+  /* Hide instantly on hover */
   transition-delay: 0s;
 }
