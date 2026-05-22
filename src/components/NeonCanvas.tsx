@@ -36,6 +36,17 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState<number>(1.0); // Default to 100% zoom
 
+  // High-performance smooth animation refs
+  const targetZoomRef = useRef<number>(1.0);
+  const currentZoomRef = useRef<number>(1.0);
+  const animationFrameRef = useRef<number | null>(null);
+  const zoomFocalPointRef = useRef<{
+    mouseX: number;
+    mouseY: number;
+    unscaledX: number;
+    unscaledY: number;
+  } | null>(null);
+
   // Panning and Spacebar states
   const [spacePressed, setSpacePressed] = useState<boolean>(false);
   const [isPanning, setIsPanning] = useState<boolean>(false);
@@ -158,7 +169,87 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
     }
   }, []);
 
-  // Imperative non-passive wheel event handler for zooming with mouse wheel (direct scrolling!)
+  // Trigger zoom animation smoothly moving current zoom toward target zoom centered on focal points
+  const triggerZoomAnimation = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (animationFrameRef.current === null) {
+      const animate = () => {
+        const target = targetZoomRef.current;
+        const current = currentZoomRef.current;
+        const focal = zoomFocalPointRef.current;
+
+        const diff = target - current;
+        // Snap to target if very close to end animation
+        if (Math.abs(diff) < 0.002) {
+          setZoom(target);
+          currentZoomRef.current = target;
+          animationFrameRef.current = null;
+          return;
+        }
+
+        // LERP: Move 25% of the way to the target per frame for smooth ease-out
+        const stepZoom = parseFloat((current + diff * 0.25).toFixed(3));
+        setZoom(stepZoom);
+
+        if (focal) {
+          container.scrollLeft = focal.unscaledX * stepZoom - focal.mouseX;
+          container.scrollTop = focal.unscaledY * stepZoom - focal.mouseY;
+        }
+
+        currentZoomRef.current = stepZoom;
+        animationFrameRef.current = requestAnimationFrame(animate);
+      };
+      animationFrameRef.current = requestAnimationFrame(animate);
+    }
+  };
+
+  // Zoom button triggers centered on the screen viewport center
+  const handleZoomIncrement = (factor: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const mouseX = rect.width / 2;
+    const mouseY = rect.height / 2;
+
+    const contentX = container.scrollLeft + mouseX;
+    const contentY = container.scrollTop + mouseY;
+
+    const unscaledX = contentX / currentZoomRef.current;
+    const unscaledY = contentY / currentZoomRef.current;
+
+    zoomFocalPointRef.current = { mouseX, mouseY, unscaledX, unscaledY };
+
+    let nextZoom = currentZoomRef.current * factor;
+    nextZoom = Math.min(Math.max(nextZoom, 0.3), 3.0);
+    nextZoom = parseFloat(nextZoom.toFixed(2));
+
+    targetZoomRef.current = nextZoom;
+    triggerZoomAnimation();
+  };
+
+  const handleZoomReset = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const mouseX = rect.width / 2;
+    const mouseY = rect.height / 2;
+
+    const contentX = container.scrollLeft + mouseX;
+    const contentY = container.scrollTop + mouseY;
+
+    const unscaledX = contentX / currentZoomRef.current;
+    const unscaledY = contentY / currentZoomRef.current;
+
+    zoomFocalPointRef.current = { mouseX, mouseY, unscaledX, unscaledY };
+    targetZoomRef.current = 1.0;
+    triggerZoomAnimation();
+  };
+
+  // Imperative non-passive wheel event handler for zooming with mouse wheel (direct smooth scrolling!)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -170,35 +261,34 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
-      // Current mouse coordinate relative to scroll container coordinates
       const contentX = container.scrollLeft + mouseX;
       const contentY = container.scrollTop + mouseY;
 
-      setZoom(prevZoom => {
-        const delta = -e.deltaY;
-        // High-precision smooth multiplier scaling for both mice and trackpads
-        const factor = 1 + Math.min(Math.max(Math.abs(delta) / 1200, 0.015), 0.08);
-        let nextZoom = delta > 0 ? prevZoom * factor : prevZoom / factor;
+      // Extract unscaled coordinates under the mouse focal point
+      const unscaledX = contentX / currentZoomRef.current;
+      const unscaledY = contentY / currentZoomRef.current;
 
-        // Constraint scaling boundaries: 30% to 300% zoom limit
-        nextZoom = Math.min(Math.max(nextZoom, 0.3), 3.0);
-        nextZoom = parseFloat(nextZoom.toFixed(2));
+      zoomFocalPointRef.current = { mouseX, mouseY, unscaledX, unscaledY };
 
-        if (nextZoom !== prevZoom) {
-          const ratio = nextZoom / prevZoom;
-          requestAnimationFrame(() => {
-            // Keep the exact same point under the cursor stable during zooming
-            container.scrollLeft = contentX * ratio - mouseX;
-            container.scrollTop = contentY * ratio - mouseY;
-          });
-        }
-        return nextZoom;
-      });
+      const delta = -e.deltaY;
+      // High-precision smooth multiplier scaling for both physical mice and trackpads
+      const factor = 1 + Math.min(Math.max(Math.abs(delta) / 1200, 0.015), 0.06);
+      let nextZoom = delta > 0 ? targetZoomRef.current * factor : targetZoomRef.current / factor;
+
+      // Constraint scaling boundaries: 30% to 300% zoom limit
+      nextZoom = Math.min(Math.max(nextZoom, 0.3), 3.0);
+      nextZoom = parseFloat(nextZoom.toFixed(2));
+
+      targetZoomRef.current = nextZoom;
+      triggerZoomAnimation();
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
       container.removeEventListener('wheel', handleWheel);
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, []);
 
