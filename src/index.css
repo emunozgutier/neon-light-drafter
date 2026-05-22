@@ -1,111 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  /* Color Palette - Premium Slate Studio Theme */
+  --bg-studio: #0d0f12;
+  --bg-workbench: #12151c;
+  --bg-sidebar: rgba(18, 21, 28, 0.75);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-active: rgba(170, 59, 255, 0.5);
+  
+  --text-primary: #f1f3f9;
+  --text-secondary: #9aa2b5;
+  --text-muted: #626a7a;
+  
+  /* Accent Colors */
+  --accent-purple: #c084fc;
+  --accent-blue: #38bdf8;
+  --accent-green: #4ade80;
+  
+  /* Paper Sheet Grid Colors */
+  --paper-bg: #ffffff;
+  --paper-grid-major: rgba(30, 80, 180, 0.15);
+  --paper-grid-minor: rgba(30, 80, 180, 0.06);
+  --paper-grid-margin: rgba(220, 50, 50, 0.12);
+  --paper-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  
+  --sans: 'Outfit', system-ui, -apple-system, sans-serif;
+  --mono: 'Fira Code', monospace;
+  
+  font-family: var(--sans);
+  background-color: var(--bg-studio);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+#root {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Keyframes for Neon Flicker & Glow */
+@keyframes neon-hum {
+  0%, 100% {
+    opacity: 0.98;
+    filter: drop-shadow(0 0 1px currentColor) drop-shadow(0 0 4px currentColor) drop-shadow(0 0 12px currentColor);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 1.5px currentColor) drop-shadow(0 0 6px currentColor) drop-shadow(0 0 16px currentColor);
   }
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+
+@keyframes power-flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    opacity: 1;
+  }
+  20%, 24%, 55% {
+    opacity: 0;
   }
 }
-p {
-  margin: 0;
+
+@keyframes grid-pulse {
+  0%, 100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+.glowing {
+  animation: neon-hum 4s ease-in-out infinite alternate;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+.power-on-flicker {
+  animation: power-flicker 0.4s ease-in-out;
 }
