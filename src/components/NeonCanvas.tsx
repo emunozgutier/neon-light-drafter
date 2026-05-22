@@ -46,6 +46,7 @@ export const NeonCanvas: React.FC = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState<number>(1.0); // Default to 100% zoom
+  const hasCenteredRef = useRef<boolean>(false);
 
   // High-performance smooth animation refs
   const targetZoomRef = useRef<number>(1.0);
@@ -254,21 +255,59 @@ export const NeonCanvas: React.FC = () => {
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
   }, []);
 
-  // Auto-center the canvas scroll viewport on initial mount so the default tube is fully visible
+  // Auto-center the canvas scroll viewport on initial mount/stable-coordinates-load so the design is fully visible
   useEffect(() => {
+    if (hasCenteredRef.current) return;
+
     const container = containerRef.current;
-    if (container) {
+    if (!container) return;
+
+    if (tubes.length === 0) {
+      const centerX = widthPx / 2;
+      const centerY = heightPx / 2;
       requestAnimationFrame(() => {
-        const scrollWidth = container.scrollWidth;
-        const scrollHeight = container.scrollHeight;
         const clientWidth = container.clientWidth;
         const clientHeight = container.clientHeight;
-
-        container.scrollLeft = (scrollWidth - clientWidth) / 2;
-        container.scrollTop = (scrollHeight - clientHeight) / 2;
+        container.scrollLeft = 80 + (80 + centerX) * zoom - clientWidth / 2;
+        container.scrollTop = 80 + (50 + centerY) * zoom - clientHeight / 2;
       });
+      hasCenteredRef.current = true;
+      return;
     }
-  }, []);
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    tubes.forEach(t => {
+      t.points.forEach(p => {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      });
+    });
+
+    if (minX === Infinity) return;
+
+    // Check if the loaded tubes are off-sheet (still waiting for App's recovery translation hook)
+    const isOffSheet = maxX < 0 || minX > widthPx || maxY < 0 || minY > heightPx;
+    if (isOffSheet) return; // Wait for App.tsx to recover and center coordinates first
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    requestAnimationFrame(() => {
+      const clientWidth = container.clientWidth;
+      const clientHeight = container.clientHeight;
+
+      container.scrollLeft = 80 + (80 + centerX) * zoom - clientWidth / 2;
+      container.scrollTop = 80 + (50 + centerY) * zoom - clientHeight / 2;
+    });
+
+    hasCenteredRef.current = true;
+  }, [tubes, zoom, widthPx, heightPx]);
 
   // Trigger zoom animation smoothly moving current zoom toward target zoom centered on focal points
   const triggerZoomAnimation = () => {

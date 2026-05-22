@@ -34,7 +34,7 @@ function App() {
     }
   }, [tubes]);
 
-  // Recover off-screen / negative-coordinate drawings on initial load
+  // Recover off-sheet / negative-coordinate drawings on initial load to center on Page A-1
   useEffect(() => {
     if (tubes.length === 0) return;
 
@@ -54,17 +54,15 @@ function App() {
 
     if (minX === Infinity) return;
 
-    const totalWidthPx = 6 * activeDim.w * SCALE;
-    const totalHeightPx = 5 * activeDim.h * SCALE;
+    // Check if drawing is off the first printable sheet (Page A-1)
+    const isOffSheet = maxX < 0 || minX > widthPx || maxY < 0 || minY > heightPx;
 
-    const isOffScreen = maxX < 0 || minX > totalWidthPx || maxY < 0 || minY > totalHeightPx;
-
-    if (isOffScreen) {
+    if (isOffSheet) {
       const designCenterX = (minX + maxX) / 2;
       const designCenterY = (minY + maxY) / 2;
 
-      const targetCenterX = totalWidthPx / 2;
-      const targetCenterY = totalHeightPx / 2;
+      const targetCenterX = widthPx / 2;
+      const targetCenterY = heightPx / 2;
 
       const dx = Math.round(targetCenterX - designCenterX);
       const dy = Math.round(targetCenterY - designCenterY);
