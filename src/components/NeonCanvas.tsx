@@ -6,55 +6,37 @@ import { Line } from './Canvas/Line';
 import { Point as PointComponent } from './Canvas/Point';
 import { RefImage } from './RefImage';
 
-interface NeonCanvasProps {
-  tubes: Tube[];
-  setTubes: React.Dispatch<React.SetStateAction<Tube[]>>;
-  selectedTubeId: string | null;
-  setSelectedTubeId: (id: string | null) => void;
-  tool: 'select' | 'bend' | 'cut' | 'weld' | 'add';
-  isPowerOn: boolean;
-  sheetType: 'letter' | 'a4';
-  orientation: 'portrait' | 'landscape';
-  sheetCount: number;
-  bendRadius: number;
-  useMetric: boolean;
-  snapToGrid: boolean;
-  refImageSrc: string | null;
-  refImageOpacity: number;
-  refImageScale: number;
-  refImageX: number;
-  setRefImageX: (x: number) => void;
-  refImageY: number;
-  setRefImageY: (y: number) => void;
-  isRefImageLocked: boolean;
-  setIsRefImageLocked: (l: boolean) => void;
-  refImageAspectRatio: number;
-}
+import { useSideMenu } from '../store/useSideMenu';
+import { useCanvas } from '../store/useCanvas';
 
-export const NeonCanvas: React.FC<NeonCanvasProps> = ({
-  tubes,
-  setTubes,
-  selectedTubeId,
-  setSelectedTubeId,
-  tool,
-  isPowerOn,
-  sheetType,
-  orientation,
-  sheetCount,
-  bendRadius,
-  useMetric,
-  snapToGrid,
-  refImageSrc,
-  refImageOpacity,
-  refImageScale,
-  refImageX,
-  setRefImageX,
-  refImageY,
-  setRefImageY,
-  isRefImageLocked,
-  setIsRefImageLocked,
-  refImageAspectRatio
-}) => {
+export const NeonCanvas: React.FC = () => {
+  const {
+    sheetType,
+    orientation,
+    sheetCount,
+    bendRadius,
+    useMetric,
+    snapToGrid,
+    refImageSrc,
+    refImageOpacity,
+    refImageScale,
+    refImageX,
+    setRefImageX,
+    refImageY,
+    setRefImageY,
+    isRefImageLocked,
+    setIsRefImageLocked,
+    refImageAspectRatio,
+  } = useSideMenu();
+
+  const {
+    tubes,
+    setTubes,
+    selectedTubeId,
+    setSelectedTubeId,
+    tool,
+    isPowerOn,
+  } = useCanvas();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState<number>(1.0); // Default to 100% zoom

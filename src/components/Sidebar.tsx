@@ -1,41 +1,8 @@
 import React from 'react';
 import type { Tube } from '../utils/geometry';
 import { formatLength, calculateTubeGeometry, SCALE, generateId } from '../utils/geometry';
-
-interface SidebarProps {
-  tubes: Tube[];
-  setTubes: React.Dispatch<React.SetStateAction<Tube[]>>;
-  selectedTubeId: string | null;
-  setSelectedTubeId: (id: string | null) => void;
-  tool: 'select' | 'bend' | 'cut' | 'weld' | 'add';
-  setTool: (t: 'select' | 'bend' | 'cut' | 'weld' | 'add') => void;
-  isPowerOn: boolean;
-  setIsPowerOn: (p: boolean) => void;
-  bendRadius: number;
-  setBendRadius: (r: number) => void;
-  useMetric: boolean;
-  setUseMetric: (m: boolean) => void;
-  snapToGrid: boolean;
-  setSnapToGrid: (s: boolean) => void;
-  sheetType: 'letter' | 'a4';
-  setSheetType: (s: 'letter' | 'a4') => void;
-  orientation: 'portrait' | 'landscape';
-  setOrientation: (o: 'portrait' | 'landscape') => void;
-  refImageSrc: string | null;
-  setRefImageSrc: (s: string | null) => void;
-  refImageOpacity: number;
-  setRefImageOpacity: (o: number) => void;
-  refImageScale: number;
-  setRefImageScale: (s: number) => void;
-  refImageX: number;
-  setRefImageX: (x: number) => void;
-  refImageY: number;
-  setRefImageY: (y: number) => void;
-  isRefImageLocked: boolean;
-  setIsRefImageLocked: (l: boolean) => void;
-  refImageAspectRatio: number;
-  setRefImageAspectRatio: (r: number) => void;
-}
+import { useSideMenu } from '../store/useSideMenu';
+import { useCanvas } from '../store/useCanvas';
 
 // Curated high-fidelity neon colors
 const NEON_PRESETS = [
@@ -49,39 +16,44 @@ const NEON_PRESETS = [
   { name: 'Ultraviolet', value: '#a855f7', description: 'Deep purple/blacklight glow effect' }
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({
-  tubes,
-  setTubes,
-  selectedTubeId,
-  setSelectedTubeId,
-  tool,
-  setTool,
-  isPowerOn,
-  setIsPowerOn,
-  bendRadius,
-  setBendRadius,
-  useMetric,
-  setUseMetric,
-  snapToGrid,
-  setSnapToGrid,
-  sheetType,
-  setSheetType,
-  orientation,
-  setOrientation,
-  refImageSrc,
-  setRefImageSrc,
-  refImageOpacity,
-  setRefImageOpacity,
-  refImageScale,
-  setRefImageScale,
-  refImageX,
-  setRefImageX,
-  refImageY,
-  setRefImageY,
-  isRefImageLocked,
-  setIsRefImageLocked,
-  setRefImageAspectRatio
-}) => {
+export const Sidebar: React.FC = () => {
+  const {
+    sheetType,
+    orientation,
+    bendRadius,
+    useMetric,
+    snapToGrid,
+    refImageSrc,
+    refImageOpacity,
+    refImageScale,
+    refImageX,
+    refImageY,
+    isRefImageLocked,
+    setSheetType,
+    setOrientation,
+    setBendRadius,
+    setUseMetric,
+    setSnapToGrid,
+    setRefImageSrc,
+    setRefImageOpacity,
+    setRefImageScale,
+    setRefImageX,
+    setRefImageY,
+    setIsRefImageLocked,
+    setRefImageAspectRatio,
+  } = useSideMenu();
+
+  const {
+    tubes,
+    setTubes,
+    selectedTubeId,
+    setSelectedTubeId,
+    tool,
+    setTool,
+    isPowerOn,
+    setIsPowerOn,
+  } = useCanvas();
+
   const selectedTube = tubes.find(t => t.id === selectedTubeId);
 
   // Calculate material telemetry
