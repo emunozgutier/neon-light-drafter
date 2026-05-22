@@ -77,7 +77,7 @@ export const calculateTubeGeometry = (
 
   // Multi-point path with rounded corners
   const activePoints = points;
-  let currentStart = activePoints[0];
+  let currentStart: { x: number; y: number } = activePoints[0];
 
   for (let i = 1; i < activePoints.length - 1; i++) {
     const A = activePoints[i - 1];

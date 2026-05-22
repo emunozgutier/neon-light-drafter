@@ -17,12 +17,12 @@
   --accent-blue: #38bdf8;
   --accent-green: #4ade80;
   
-  /* Paper Sheet Grid Colors */
-  --paper-bg: #ffffff;
-  --paper-grid-major: rgba(30, 80, 180, 0.15);
-  --paper-grid-minor: rgba(30, 80, 180, 0.06);
-  --paper-grid-margin: rgba(220, 50, 50, 0.12);
-  --paper-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  /* Paper Sheet Grid Colors (Futuristic Blueprint HUD) */
+  --paper-bg: transparent;
+  --paper-grid-major: rgba(56, 189, 248, 0.25);
+  --paper-grid-minor: rgba(56, 189, 248, 0.07);
+  --paper-grid-margin: rgba(192, 132, 252, 0.35);
+  --paper-shadow: none;
   
   --sans: 'Outfit', system-ui, -apple-system, sans-serif;
   --mono: 'Fira Code', monospace;
