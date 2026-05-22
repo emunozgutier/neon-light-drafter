@@ -229,3 +229,106 @@ body {
   /* Hide instantly on hover */
   transition-delay: 0s;
 }
+
+/* Tracing Reference Image Handles */
+.ref-image-handle {
+  transition: r 0.15s cubic-bezier(0.4, 0, 0.2, 1), 
+              fill 0.15s cubic-bezier(0.4, 0, 0.2, 1), 
+              stroke 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              stroke-width 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ref-image-handle:hover {
+  r: 8.5px !important;
+  fill: var(--accent-purple) !important;
+  stroke: #ffffff !important;
+  stroke-width: 2px !important;
+}
+
+/* Print Styles & 1:1 Scale Output calibration */
+@media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+  
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    background: transparent !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Style specific pages dynamically using format classes */
+  body.print-format-letter.print-orient-portrait {
+    width: 8.5in !important;
+    height: 11in !important;
+  }
+  body.print-format-letter.print-orient-landscape {
+    width: 11in !important;
+    height: 8.5in !important;
+  }
+  body.print-format-a4.print-orient-portrait {
+    width: 8.27in !important;
+    height: 11.69in !important;
+  }
+  body.print-format-a4.print-orient-landscape {
+    width: 11.69in !important;
+    height: 8.27in !important;
+  }
+
+  /* Hide regular elements completely to keep clean prints */
+  #root > :not(.print-only-container),
+  .app-container,
+  .print-modal-overlay {
+    display: none !important;
+  }
+
+  /* Expand print output to take exact 1:1 scale space */
+  .print-only-container {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Theme adjustments */
+  body.print-style-bending .print-only-container {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  body.print-style-bending .print-only-container svg {
+    filter: none !important;
+  }
+  
+  body.print-style-showcase .print-only-container {
+    background-color: #0a0c10 !important;
+    color: #ffffff !important;
+  }
+}
+
+/* Ensure print-only container is entirely hidden during normal drafting screen */
+.print-only-container {
+  display: none;
+}
+
+/* Keyframes for premium animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.0);
+  }
+}
+

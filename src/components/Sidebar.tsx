@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Tube } from '../utils/geometry';
 import { formatLength, calculateTubeGeometry, SCALE, generateId } from '../utils/geometry';
 import { useSideMenu } from '../store/useSideMenu';
@@ -16,7 +16,11 @@ const NEON_PRESETS = [
   { name: 'Ultraviolet', value: '#a855f7', description: 'Deep purple/blacklight glow effect' }
 ];
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  onOpenPrint: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
   const {
     sheetType,
     orientation,
@@ -25,7 +29,8 @@ export const Sidebar: React.FC = () => {
     snapToGrid,
     refImageSrc,
     refImageOpacity,
-    refImageScale,
+    refImageScaleX,
+    refImageScaleY,
     refImageX,
     refImageY,
     isRefImageLocked,
@@ -36,7 +41,8 @@ export const Sidebar: React.FC = () => {
     setSnapToGrid,
     setRefImageSrc,
     setRefImageOpacity,
-    setRefImageScale,
+    setRefImageScaleX,
+    setRefImageScaleY,
     setRefImageX,
     setRefImageY,
     setIsRefImageLocked,
@@ -55,6 +61,7 @@ export const Sidebar: React.FC = () => {
   } = useCanvas();
 
   const selectedTube = tubes.find(t => t.id === selectedTubeId);
+  const [hoveredToolId, setHoveredToolId] = useState<string | null>(null);
 
   // Calculate material telemetry
   let totalLengthInches = 0;
@@ -88,47 +95,108 @@ export const Sidebar: React.FC = () => {
   };
 
   const handleExpandTo4Feet = () => {
-    if (!selectedTubeId || !selectedTube) return;
-
-    const { physicalLengthInches } = calculateTubeGeometry(selectedTube.points, bendRadius);
-    if (physicalLengthInches <= 0) return;
-
     const targetLengthInches = 48; // 4 feet
-    const scaleFactor = targetLengthInches / physicalLengthInches;
 
-    // Calculate center of the tube (centroid of all anchor points)
-    let sumX = 0;
-    let sumY = 0;
-    selectedTube.points.forEach(p => {
-      sumX += p.x;
-      sumY += p.y;
-    });
-    const centerX = sumX / selectedTube.points.length;
-    const centerY = sumY / selectedTube.points.length;
+    if (selectedTubeId && selectedTube) {
+      // Scale only the selected tube
+      const { physicalLengthInches } = calculateTubeGeometry(selectedTube.points, bendRadius);
+      if (physicalLengthInches <= 0) return;
 
-    // Scale all points and handles relative to the center
-    const scaledPoints = selectedTube.points.map(p => {
-      const newPt = {
-        ...p,
-        x: centerX + (p.x - centerX) * scaleFactor,
-        y: centerY + (p.y - centerY) * scaleFactor,
-      };
-      if (p.handleIn) {
-        newPt.handleIn = {
-          dx: p.handleIn.dx * scaleFactor,
-          dy: p.handleIn.dy * scaleFactor
+      const scaleFactor = targetLengthInches / physicalLengthInches;
+
+      // Calculate center of the tube (centroid of all anchor points)
+      let sumX = 0;
+      let sumY = 0;
+      selectedTube.points.forEach(p => {
+        sumX += p.x;
+        sumY += p.y;
+      });
+      const centerX = sumX / selectedTube.points.length;
+      const centerY = sumY / selectedTube.points.length;
+
+      // Scale all points and handles relative to the center
+      const scaledPoints = selectedTube.points.map(p => {
+        const newPt = {
+          ...p,
+          x: centerX + (p.x - centerX) * scaleFactor,
+          y: centerY + (p.y - centerY) * scaleFactor,
         };
-      }
-      if (p.handleOut) {
-        newPt.handleOut = {
-          dx: p.handleOut.dx * scaleFactor,
-          dy: p.handleOut.dy * scaleFactor
-        };
-      }
-      return newPt;
-    });
+        if (p.handleIn) {
+          newPt.handleIn = {
+            dx: p.handleIn.dx * scaleFactor,
+            dy: p.handleIn.dy * scaleFactor
+          };
+        }
+        if (p.handleOut) {
+          newPt.handleOut = {
+            dx: p.handleOut.dx * scaleFactor,
+            dy: p.handleOut.dy * scaleFactor
+          };
+        }
+        return newPt;
+      });
 
-    handleUpdateSelectedTube({ points: scaledPoints });
+      handleUpdateSelectedTube({ points: scaledPoints });
+    } else {
+      // Scale all tubes globally so that total physical length becomes exactly 48"
+      if (tubes.length === 0) return;
+
+      // 1. Calculate total current length
+      let totalLength = 0;
+      tubes.forEach(t => {
+        const { physicalLengthInches } = calculateTubeGeometry(t.points, bendRadius);
+        totalLength += physicalLengthInches;
+      });
+
+      if (totalLength <= 0) return;
+      const scaleFactor = targetLengthInches / totalLength;
+
+      // 2. Calculate center of all points across all tubes
+      let sumX = 0;
+      let sumY = 0;
+      let totalPointsCount = 0;
+      tubes.forEach(t => {
+        t.points.forEach(p => {
+          sumX += p.x;
+          sumY += p.y;
+          totalPointsCount++;
+        });
+      });
+
+      if (totalPointsCount === 0) return;
+      const centerX = sumX / totalPointsCount;
+      const centerY = sumY / totalPointsCount;
+
+      // 3. Scale all tubes
+      setTubes(prev =>
+        prev.map(t => {
+          const scaledPoints = t.points.map(p => {
+            const newPt = {
+              ...p,
+              x: centerX + (p.x - centerX) * scaleFactor,
+              y: centerY + (p.y - centerY) * scaleFactor,
+            };
+            if (p.handleIn) {
+              newPt.handleIn = {
+                dx: p.handleIn.dx * scaleFactor,
+                dy: p.handleIn.dy * scaleFactor
+              };
+            }
+            if (p.handleOut) {
+              newPt.handleOut = {
+                dx: p.handleOut.dx * scaleFactor,
+                dy: p.handleOut.dy * scaleFactor
+              };
+            }
+            return newPt;
+          });
+          return {
+            ...t,
+            points: scaledPoints
+          };
+        })
+      );
+    }
   };
 
   return (
@@ -230,7 +298,7 @@ export const Sidebar: React.FC = () => {
         </span>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
+          gridTemplateColumns: 'repeat(6, 1fr)',
           gap: '6px',
           marginTop: '10px'
         }}>
@@ -239,28 +307,60 @@ export const Sidebar: React.FC = () => {
             { id: 'bend', icon: '🟣', label: 'Bend' },
             { id: 'cut', icon: '✂️', label: 'Cut' },
             { id: 'weld', icon: '🟢', label: 'Weld' },
-            { id: 'add', icon: '➕', label: 'Add Tube' }
+            { id: 'add', icon: '➕', label: 'Add' },
+            { id: 'delete', icon: '🗑️', label: 'Delete', isAction: true }
           ].map(t => {
             const isActive = tool === t.id;
+            const isHovered = hoveredToolId === t.id;
+            const isDisabled = t.isAction && t.id === 'delete' && !selectedTubeId;
+
             return (
               <button
                 key={t.id}
-                onClick={() => setTool(t.id as any)}
+                disabled={isDisabled}
+                onClick={() => {
+                  if (t.isAction) {
+                    if (t.id === 'delete') handleDeleteTube();
+                  } else {
+                    setTool(t.id as any);
+                  }
+                }}
+                onMouseEnter={() => !isDisabled && setHoveredToolId(t.id)}
+                onMouseLeave={() => setHoveredToolId(null)}
                 title={t.label}
                 style={{
                   height: '46px',
                   borderRadius: '6px',
-                  backgroundColor: isActive ? 'var(--accent-purple)' : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${isActive ? 'transparent' : 'var(--border-glass)'}`,
-                  color: isActive ? '#0d0f12' : 'var(--text-primary)',
+                  backgroundColor: isDisabled 
+                    ? 'rgba(255,255,255,0.01)'
+                    : (isActive 
+                      ? 'var(--accent-purple)' 
+                      : (isHovered 
+                        ? (t.id === 'delete' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.08)')
+                        : 'rgba(255,255,255,0.03)')),
+                  border: `1px solid ${
+                    isDisabled 
+                      ? 'rgba(255,255,255,0.03)'
+                      : (isActive 
+                        ? 'transparent' 
+                        : (isHovered 
+                          ? (t.id === 'delete' ? 'rgba(239, 68, 68, 0.4)' : 'var(--accent-purple)')
+                          : 'var(--border-glass)'))
+                  }`,
+                  color: isDisabled 
+                    ? 'var(--text-muted)' 
+                    : (isActive 
+                      ? '#0d0f12' 
+                      : (t.id === 'delete' ? '#ef4444' : 'var(--text-primary)')),
                   fontSize: '18px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '2px',
+                  opacity: isDisabled ? 0.35 : 1,
                   boxShadow: isActive ? '0 4px 12px rgba(192, 132, 252, 0.4)' : 'none'
                 }}
               >
@@ -661,6 +761,8 @@ export const Sidebar: React.FC = () => {
                     reader.onload = (event) => {
                       const src = event.target?.result as string;
                       setRefImageSrc(src);
+                      setRefImageScaleX(1.0);
+                      setRefImageScaleY(1.0);
                       
                       // Calculate and store aspect ratio
                       const img = new Image();
@@ -780,12 +882,12 @@ export const Sidebar: React.FC = () => {
               />
             </div>
 
-            {/* Scale slider */}
+            {/* Scale X slider */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                <span>Scale Ratio</span>
+                <span>Width Scale (X)</span>
                 <span style={{ fontFamily: 'var(--mono)', fontWeight: 'bold', color: 'var(--accent-purple)' }}>
-                  {Math.round(refImageScale * 100)}%
+                  {Math.round(refImageScaleX * 100)}%
                 </span>
               </div>
               <input
@@ -793,8 +895,27 @@ export const Sidebar: React.FC = () => {
                 min="0.10"
                 max="3.00"
                 step="0.05"
-                value={refImageScale}
-                onChange={(e) => setRefImageScale(Number(e.target.value))}
+                value={refImageScaleX}
+                onChange={(e) => setRefImageScaleX(Number(e.target.value))}
+                style={{ width: '100%', height: '4px', borderRadius: '2px', cursor: 'pointer', accentColor: 'var(--accent-purple)' }}
+              />
+            </div>
+
+            {/* Scale Y slider */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <span>Height Scale (Y)</span>
+                <span style={{ fontFamily: 'var(--mono)', fontWeight: 'bold', color: 'var(--accent-purple)' }}>
+                  {Math.round(refImageScaleY * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.10"
+                max="3.00"
+                step="0.05"
+                value={refImageScaleY}
+                onChange={(e) => setRefImageScaleY(Number(e.target.value))}
                 style={{ width: '100%', height: '4px', borderRadius: '2px', cursor: 'pointer', accentColor: 'var(--accent-purple)' }}
               />
             </div>
@@ -840,7 +961,8 @@ export const Sidebar: React.FC = () => {
             {/* Reset transformation coordinates */}
             <button
               onClick={() => {
-                setRefImageScale(1.0);
+                setRefImageScaleX(1.0);
+                setRefImageScaleY(1.0);
                 setRefImageX(0);
                 setRefImageY(0);
               }}
@@ -865,6 +987,49 @@ export const Sidebar: React.FC = () => {
 
           </div>
         )}
+      </div>
+
+      {/* 5.8. Export & Print Layout Card */}
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-glass)' }}>
+        <span style={{ fontSize: '11.5px', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
+          Production & Print Shop
+        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+          <button
+            onClick={onOpenPrint}
+            style={{
+              width: '100%',
+              height: '36px',
+              borderRadius: '6px',
+              backgroundColor: 'rgba(192, 132, 252, 0.08)',
+              border: '1px solid rgba(192, 132, 252, 0.4)',
+              color: 'var(--accent-purple)',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.15)';
+              e.currentTarget.style.borderColor = 'var(--accent-purple)';
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(192, 132, 252, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.4)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <span>🖨️ Print 1:1 Scale Outline...</span>
+          </button>
+          <p style={{ fontSize: '10.5px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.3' }}>
+            Open 1:1 scale shop drawing print workbench. Align, auto-center, and customize layout guidelines.
+          </p>
+        </div>
       </div>
 
       {/* 6. Material telemetry and planner (Material Monitor) */}
@@ -936,40 +1101,40 @@ export const Sidebar: React.FC = () => {
               </div>
             )}
             {/* Expand to 4' Quick Action */}
-            {selectedTube && (
-              <button
-                onClick={handleExpandTo4Feet}
-                style={{
-                  width: '100%',
-                  height: '32px',
-                  borderRadius: '4px',
-                  backgroundColor: 'rgba(192, 132, 252, 0.08)',
-                  border: '1px dashed rgba(192, 132, 252, 0.4)',
-                  color: 'var(--accent-purple)',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s ease',
-                  marginTop: '8px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.15)';
-                  e.currentTarget.style.borderColor = 'var(--accent-purple)';
-                  e.currentTarget.style.boxShadow = '0 0 10px rgba(192, 132, 252, 0.2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.08)';
-                  e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.4)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                📏 Fit Selected to 4' Tube (Scale)
-              </button>
-            )}
+            <button
+              onClick={handleExpandTo4Feet}
+              style={{
+                width: '100%',
+                height: '32px',
+                borderRadius: '4px',
+                backgroundColor: 'rgba(192, 132, 252, 0.08)',
+                border: '1px dashed rgba(192, 132, 252, 0.4)',
+                color: 'var(--accent-purple)',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                transition: 'all 0.2s ease',
+                marginTop: '8px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.15)';
+                e.currentTarget.style.borderColor = 'var(--accent-purple)';
+                e.currentTarget.style.boxShadow = '0 0 10px rgba(192, 132, 252, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.08)';
+                e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.4)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              {selectedTube 
+                ? "📏 Fit Selected to 4' Tube (Scale)" 
+                : "📏 Fit Total Design to 4' (Scale)"}
+            </button>
           </div>
         ) : (
           <div style={{

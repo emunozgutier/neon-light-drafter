@@ -10,6 +10,8 @@ export interface SideMenuState {
   refImageSrc: string | null;
   refImageOpacity: number;
   refImageScale: number;
+  refImageScaleX: number;
+  refImageScaleY: number;
   refImageX: number;
   refImageY: number;
   isRefImageLocked: boolean;
@@ -24,6 +26,8 @@ export interface SideMenuState {
   setRefImageSrc: (src: string | null) => void;
   setRefImageOpacity: (opacity: number) => void;
   setRefImageScale: (scale: number) => void;
+  setRefImageScaleX: (scaleX: number) => void;
+  setRefImageScaleY: (scaleY: number) => void;
   setRefImageX: (x: number) => void;
   setRefImageY: (y: number) => void;
   setIsRefImageLocked: (locked: boolean) => void;
@@ -40,6 +44,8 @@ export const useSideMenu = create<SideMenuState>((set) => ({
   refImageSrc: null,
   refImageOpacity: 0.4,
   refImageScale: 1.0,
+  refImageScaleX: 1.0,
+  refImageScaleY: 1.0,
   refImageX: 0,
   refImageY: 0,
   isRefImageLocked: true,
@@ -53,7 +59,9 @@ export const useSideMenu = create<SideMenuState>((set) => ({
   setSnapToGrid: (snapToGrid) => set({ snapToGrid }),
   setRefImageSrc: (refImageSrc) => set({ refImageSrc }),
   setRefImageOpacity: (refImageOpacity) => set({ refImageOpacity }),
-  setRefImageScale: (refImageScale) => set({ refImageScale }),
+  setRefImageScale: (refImageScale) => set({ refImageScale, refImageScaleX: refImageScale, refImageScaleY: refImageScale }),
+  setRefImageScaleX: (refImageScaleX) => set({ refImageScaleX }),
+  setRefImageScaleY: (refImageScaleY) => set({ refImageScaleY }),
   setRefImageX: (refImageX) => set({ refImageX }),
   setRefImageY: (refImageY) => set({ refImageY }),
   setIsRefImageLocked: (isRefImageLocked) => set({ isRefImageLocked }),

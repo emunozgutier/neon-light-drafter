@@ -19,7 +19,10 @@ export const NeonCanvas: React.FC = () => {
     snapToGrid,
     refImageSrc,
     refImageOpacity,
-    refImageScale,
+    refImageScaleX,
+    refImageScaleY,
+    setRefImageScaleX,
+    setRefImageScaleY,
     refImageX,
     setRefImageX,
     refImageY,
@@ -101,6 +104,15 @@ export const NeonCanvas: React.FC = () => {
   // Tracing image dragging states
   const [isDraggingImage, setIsDraggingImage] = useState<boolean>(false);
   const [imageDragStart, setImageDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [draggingRefImageHandle, setDraggingRefImageHandle] = useState<string | null>(null);
+  const [refImageDragStartParams, setRefImageDragStartParams] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    mouseX: number;
+    mouseY: number;
+  } | null>(null);
 
   // Point hover/edit mode tracking to prevent adding points on click
   const [isHoveringPoint, setIsHoveringPoint] = useState<boolean>(false);
@@ -373,10 +385,82 @@ export const NeonCanvas: React.FC = () => {
     });
   };
 
+  const handleRefImageHandleMouseDown = (handle: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setDraggingRefImageHandle(handle);
+    const mousePos = getSVGCoords(e as unknown as React.MouseEvent<SVGSVGElement>);
+    setRefImageDragStartParams({
+      x: refImageX,
+      y: refImageY,
+      w: 1000 * refImageScaleX,
+      h: 1000 * refImageScaleY * refImageAspectRatio,
+      mouseX: mousePos.x,
+      mouseY: mousePos.y,
+    });
+  };
+
   // Handle segment hovering and dragging interactions
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (hoverDisabled) {
       setHoverDisabled(false);
+    }
+
+    if (draggingRefImageHandle && refImageDragStartParams) {
+      const mousePos = getSVGCoords(e);
+      const dx = mousePos.x - refImageDragStartParams.mouseX;
+      const dy = mousePos.y - refImageDragStartParams.mouseY;
+      const { x: startX, y: startY, w: startW, h: startH } = refImageDragStartParams;
+      
+      const minSize = 50; // minimum size of 50px
+      
+      let newW = startW;
+      let newH = startH;
+      let newX = startX;
+      let newY = startY;
+      
+      switch (draggingRefImageHandle) {
+        case 'rc':
+          newW = Math.max(minSize, startW + dx);
+          break;
+        case 'lc':
+          newW = Math.max(minSize, startW - dx);
+          newX = startX + (startW - newW);
+          break;
+        case 'bc':
+          newH = Math.max(minSize, startH + dy);
+          break;
+        case 'tc':
+          newH = Math.max(minSize, startH - dy);
+          newY = startY + (startH - newH);
+          break;
+        case 'br':
+          newW = Math.max(minSize, startW + dx);
+          newH = Math.max(minSize, startH + dy);
+          break;
+        case 'tl':
+          newW = Math.max(minSize, startW - dx);
+          newH = Math.max(minSize, startH - dy);
+          newX = startX + (startW - newW);
+          newY = startY + (startH - newH);
+          break;
+        case 'tr':
+          newW = Math.max(minSize, startW + dx);
+          newH = Math.max(minSize, startH - dy);
+          newY = startY + (startH - newH);
+          break;
+        case 'bl':
+          newW = Math.max(minSize, startW - dx);
+          newH = Math.max(minSize, startH + dy);
+          newX = startX + (startW - newW);
+          break;
+      }
+      
+      setRefImageX(newX);
+      setRefImageY(newY);
+      setRefImageScaleX(newW / 1000);
+      setRefImageScaleY(newH / (1000 * refImageAspectRatio));
+      return;
     }
 
     if (isPanning) {
@@ -743,6 +827,12 @@ export const NeonCanvas: React.FC = () => {
   const handleMouseUp = () => {
     if (isPanning) {
       setIsPanning(false);
+      return;
+    }
+
+    if (draggingRefImageHandle) {
+      setDraggingRefImageHandle(null);
+      setRefImageDragStartParams(null);
       return;
     }
 
@@ -1166,7 +1256,12 @@ export const NeonCanvas: React.FC = () => {
       position: 'relative',
       overflow: 'auto',
       padding: '80px',
-      cursor: isPanning ? 'grabbing' : (spacePressed ? 'grab' : (tool === 'cut' ? 'crosshair' : 'default'))
+      cursor: draggingRefImageHandle 
+        ? (draggingRefImageHandle === 'tl' || draggingRefImageHandle === 'br' ? 'nwse-resize'
+           : draggingRefImageHandle === 'tr' || draggingRefImageHandle === 'bl' ? 'nesw-resize'
+           : draggingRefImageHandle === 'tc' || draggingRefImageHandle === 'bc' ? 'ns-resize'
+           : 'ew-resize')
+        : (isPanning ? 'grabbing' : (spacePressed ? 'grab' : (tool === 'cut' ? 'crosshair' : 'default')))
     }}>
       <svg
         ref={svgRef}
@@ -1201,12 +1296,14 @@ export const NeonCanvas: React.FC = () => {
               refImageSrc={refImageSrc}
               refImageX={refImageX}
               refImageY={refImageY}
-              refImageScale={refImageScale}
+              refImageScaleX={refImageScaleX}
+              refImageScaleY={refImageScaleY}
               refImageAspectRatio={refImageAspectRatio}
               refImageOpacity={refImageOpacity}
               isRefImageLocked={isRefImageLocked}
               setIsRefImageLocked={setIsRefImageLocked}
               onMouseDown={handleImageMouseDown}
+              onHandleMouseDown={handleRefImageHandleMouseDown}
             />
           )}
           
