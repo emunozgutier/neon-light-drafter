@@ -189,6 +189,7 @@ body {
 /* Interactive Point Control Group Styles (Hides handle knobs, lines, and delete button unless hovered/active) */
 .point-control-group .handle-line,
 .point-control-group .handle-knob,
+.point-control-group .handle-catcher,
 .point-control-group .delete-node-btn,
 .point-control-group .edit-dash-indicator {
   opacity: 0;
@@ -200,14 +201,16 @@ body {
 
 .neon-svg-canvas:not(.disable-hover) .point-control-group:hover .handle-line,
 .neon-svg-canvas:not(.disable-hover) .point-control-group:hover .handle-knob,
+.neon-svg-canvas:not(.disable-hover) .point-control-group:hover .handle-catcher,
 .neon-svg-canvas:not(.disable-hover) .point-control-group:hover .delete-node-btn,
 .neon-svg-canvas:not(.disable-hover) .point-control-group:hover .edit-dash-indicator,
 .point-control-group.active .handle-line,
 .point-control-group.active .handle-knob,
+.point-control-group.active .handle-catcher,
 .point-control-group.active .delete-node-btn,
 .point-control-group.active .edit-dash-indicator {
   opacity: 1;
-  pointer-events: auto;
+  pointer-events: all;
   /* Show instantly (0s delay) when hovered or active */
   transition-delay: 0s;
 }

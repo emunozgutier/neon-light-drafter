@@ -152,7 +152,7 @@ export const Line: React.FC<LineProps> = ({
 
       {/* 8. Length Indicator Tag (Floating Badge) */}
       {isSelected && tube.points.length >= 2 && (
-        <g transform={`translate(${tube.points[0].x}, ${tube.points[0].y - 20})`}>
+        <g transform={`translate(${tube.points[0].x}, ${tube.points[0].y - 20})`} style={{ pointerEvents: 'none' }}>
           <rect
             x="-40"
             y="-18"

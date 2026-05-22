@@ -110,7 +110,7 @@ export const Point: React.FC<PointProps> = ({
       <circle
         cx={pt.x}
         cy={pt.y}
-        r="40"
+        r="18"
         fill="none"
         pointerEvents="all"
         style={{ cursor: 'pointer' }}
@@ -150,21 +150,21 @@ export const Point: React.FC<PointProps> = ({
       {hasHandleIn && index > 0 && (
         <>
           <line
+            className="handle-catcher"
             x1={pt.x}
             y1={pt.y}
             x2={inX}
             y2={inY}
             stroke="none"
             strokeWidth="60"
-            pointerEvents="all"
             style={{ cursor: 'pointer' }}
           />
           <circle
+            className="handle-catcher"
             cx={inX}
             cy={inY}
             r="30"
             fill="none"
-            pointerEvents="all"
             style={{ cursor: 'pointer' }}
           />
         </>
@@ -173,21 +173,21 @@ export const Point: React.FC<PointProps> = ({
       {hasHandleOut && index < totalPoints - 1 && (
         <>
           <line
+            className="handle-catcher"
             x1={pt.x}
             y1={pt.y}
             x2={outX}
             y2={outY}
             stroke="none"
             strokeWidth="60"
-            pointerEvents="all"
             style={{ cursor: 'pointer' }}
           />
           <circle
+            className="handle-catcher"
             cx={outX}
             cy={outY}
             r="30"
             fill="none"
-            pointerEvents="all"
             style={{ cursor: 'pointer' }}
           />
         </>

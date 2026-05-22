@@ -87,6 +87,50 @@ export const Sidebar: React.FC = () => {
     setSelectedTubeId(null);
   };
 
+  const handleExpandTo4Feet = () => {
+    if (!selectedTubeId || !selectedTube) return;
+
+    const { physicalLengthInches } = calculateTubeGeometry(selectedTube.points, bendRadius);
+    if (physicalLengthInches <= 0) return;
+
+    const targetLengthInches = 48; // 4 feet
+    const scaleFactor = targetLengthInches / physicalLengthInches;
+
+    // Calculate center of the tube (centroid of all anchor points)
+    let sumX = 0;
+    let sumY = 0;
+    selectedTube.points.forEach(p => {
+      sumX += p.x;
+      sumY += p.y;
+    });
+    const centerX = sumX / selectedTube.points.length;
+    const centerY = sumY / selectedTube.points.length;
+
+    // Scale all points and handles relative to the center
+    const scaledPoints = selectedTube.points.map(p => {
+      const newPt = {
+        ...p,
+        x: centerX + (p.x - centerX) * scaleFactor,
+        y: centerY + (p.y - centerY) * scaleFactor,
+      };
+      if (p.handleIn) {
+        newPt.handleIn = {
+          dx: p.handleIn.dx * scaleFactor,
+          dy: p.handleIn.dy * scaleFactor
+        };
+      }
+      if (p.handleOut) {
+        newPt.handleOut = {
+          dx: p.handleOut.dx * scaleFactor,
+          dy: p.handleOut.dy * scaleFactor
+        };
+      }
+      return newPt;
+    });
+
+    handleUpdateSelectedTube({ points: scaledPoints });
+  };
+
   return (
     <div style={{
       width: '360px',
@@ -369,6 +413,40 @@ export const Sidebar: React.FC = () => {
                 </select>
               </div>
             </div>
+
+            {/* Expand to 4' Action */}
+            <button
+              onClick={handleExpandTo4Feet}
+              style={{
+                width: '100%',
+                height: '34px',
+                borderRadius: '4px',
+                backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                border: '1px dashed rgba(56, 189, 248, 0.4)',
+                color: 'var(--accent-blue)',
+                fontSize: '11.5px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                transition: 'all 0.2s ease',
+                marginTop: '4px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.15)';
+                e.currentTarget.style.borderColor = 'var(--accent-blue)';
+                e.currentTarget.style.boxShadow = '0 0 10px rgba(56, 189, 248, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.08)';
+                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              📏 Fit Selected to 4' Tube (Scale)
+            </button>
 
             {/* Actions for active tube */}
             <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
@@ -856,6 +934,41 @@ export const Sidebar: React.FC = () => {
               }}>
                 ⚠️ <strong>{overLengthCount} glass tube(s)</strong> exceed their physical raw size limit! Drag to bend or slice them using the Cut tool ✂️ to stay within boundaries.
               </div>
+            )}
+            {/* Expand to 4' Quick Action */}
+            {selectedTube && (
+              <button
+                onClick={handleExpandTo4Feet}
+                style={{
+                  width: '100%',
+                  height: '32px',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(192, 132, 252, 0.08)',
+                  border: '1px dashed rgba(192, 132, 252, 0.4)',
+                  color: 'var(--accent-purple)',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                  marginTop: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.15)';
+                  e.currentTarget.style.borderColor = 'var(--accent-purple)';
+                  e.currentTarget.style.boxShadow = '0 0 10px rgba(192, 132, 252, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.08)';
+                  e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.4)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                📏 Fit Selected to 4' Tube (Scale)
+              </button>
             )}
           </div>
         ) : (
