@@ -313,6 +313,14 @@ body {
     background-color: #0a0c10 !important;
     color: #ffffff !important;
   }
+
+  /* Conditionally hide bending or showcase graphics based on selected style */
+  body.print-style-bending .print-showcase-path {
+    display: none !important;
+  }
+  body.print-style-showcase .print-bending-path {
+    display: none !important;
+  }
 }
 
 /* Ensure print-only container is entirely hidden during normal drafting screen */

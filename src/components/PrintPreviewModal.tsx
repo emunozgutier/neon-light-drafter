@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSideMenu } from '../store/useSideMenu';
 import { useCanvas } from '../store/useCanvas';
-import { calculateTubeGeometry, formatLength, SCALE } from '../utils/geometry';
+import { calculateTubeGeometry, SCALE } from '../utils/geometry';
 
 interface PrintPreviewModalProps {
   onClose: () => void;
