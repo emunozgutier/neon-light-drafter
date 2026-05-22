@@ -185,3 +185,26 @@ body {
   stroke: #ffffff;
   stroke-width: 2px;
 }
+
+/* Interactive Point Control Group Styles (Hides handle knobs, lines, and delete button unless hovered/active) */
+.point-control-group .handle-line,
+.point-control-group .handle-knob,
+.point-control-group .delete-node-btn {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 800ms grace period: keep handles visible and interactive for 800ms when mouse leaves */
+  transition-delay: 0.8s;
+}
+
+.point-control-group:hover .handle-line,
+.point-control-group:hover .handle-knob,
+.point-control-group:hover .delete-node-btn,
+.point-control-group.active .handle-line,
+.point-control-group.active .handle-knob,
+.point-control-group.active .delete-node-btn {
+  opacity: 1;
+  pointer-events: auto;
+  /* Show instantly (0s delay) when hovered or active */
+  transition-delay: 0s;
+}

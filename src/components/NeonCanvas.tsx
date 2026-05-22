@@ -102,6 +102,38 @@ export const NeonCanvas: React.FC = () => {
   const [isDraggingImage, setIsDraggingImage] = useState<boolean>(false);
   const [imageDragStart, setImageDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  // Point hover/edit mode tracking to prevent adding points on click
+  const [isHoveringPoint, setIsHoveringPoint] = useState<boolean>(false);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handlePointMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsHoveringPoint(true);
+  };
+
+  const handlePointMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    // Match the 800ms CSS grace period
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsHoveringPoint(false);
+      hoverTimeoutRef.current = null;
+    }, 800);
+  };
+
+  // Clean up pending hover timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Helper: Get local SVG coordinates from mouse event
   const getSVGCoords = (e: React.MouseEvent<SVGSVGElement>): { x: number; y: number } => {
     if (!svgRef.current) return { x: 0, y: 0 };
@@ -544,6 +576,11 @@ export const NeonCanvas: React.FC = () => {
 
     if (!isLeftButton) return;
 
+    // Prevent adding a new point/tube or changing selection if a point is in edit mode (hovered or within grace period)
+    if (isHoveringPoint || (e.target as SVGElement).closest('.point-control-group')) {
+      return;
+    }
+
     // INTERCEPT PULSING GHOST POINT CLICK TO INSERT A NODE
     if (hoveredGhostPoint && (tool === 'select' || tool === 'bend')) {
       e.preventDefault();
@@ -981,6 +1018,7 @@ export const NeonCanvas: React.FC = () => {
                   index={index}
                   totalPoints={tube.points.length}
                   draggingNode={draggingNode}
+                  draggingHandle={draggingHandle}
                   onNodeMouseDown={handleNodeMouseDown}
                   onNodeContextMenu={handleNodeContextMenu}
                   onHandleMouseDown={(e, tId, pId, type) => {
@@ -989,6 +1027,8 @@ export const NeonCanvas: React.FC = () => {
                     setDraggingHandle({ tubeId: tId, pointId: pId, handleType: type });
                   }}
                   onDeleteNode={handleDeleteNode}
+                  onMouseEnter={handlePointMouseEnter}
+                  onMouseLeave={handlePointMouseLeave}
                 />
 
                 {/* Drag Entire Tube Button (Tactile Grip Handle) - Rendered only at Endpoints (Start and End nodes) */}

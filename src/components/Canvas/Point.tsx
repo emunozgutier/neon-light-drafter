@@ -7,10 +7,13 @@ interface PointProps {
   index: number;
   totalPoints: number;
   draggingNode: { tubeId: string; pointId: string } | null;
+  draggingHandle: { tubeId: string; pointId: string; handleType: 'in' | 'out' } | null;
   onNodeMouseDown: (e: React.MouseEvent<SVGCircleElement>, tubeId: string, pointId: string) => void;
   onNodeContextMenu: (e: React.MouseEvent<SVGCircleElement>, tubeId: string, pointId: string) => void;
   onHandleMouseDown: (e: React.MouseEvent<SVGCircleElement>, tubeId: string, pointId: string, handleType: 'in' | 'out') => void;
   onDeleteNode: (tubeId: string, pointId: string) => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 export const Point: React.FC<PointProps> = ({
@@ -19,12 +22,17 @@ export const Point: React.FC<PointProps> = ({
   index,
   totalPoints,
   draggingNode,
+  draggingHandle,
   onNodeMouseDown,
   onNodeContextMenu,
   onHandleMouseDown,
   onDeleteNode,
+  onMouseEnter,
+  onMouseLeave,
 }) => {
   const isNodeHovered = draggingNode?.pointId === pt.id;
+  const isHandleHovered = draggingHandle?.pointId === pt.id;
+  const isDragging = isNodeHovered || isHandleHovered;
   const isEnd = index === 0 || index === totalPoints - 1;
 
   const hasHandleIn = pt.handleIn && (pt.handleIn.dx !== 0 || pt.handleIn.dy !== 0);
@@ -36,10 +44,72 @@ export const Point: React.FC<PointProps> = ({
   const outY = pt.y + (pt.handleOut?.dy ?? 0);
 
   return (
-    <g>
+    <g
+      className={`point-control-group ${isDragging ? 'active' : ''}`}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {/* Invisible large hover catcher (makes it easy to hover nearby handles without losing state) */}
+      <circle
+        cx={pt.x}
+        cy={pt.y}
+        r="40"
+        fill="none"
+        pointerEvents="all"
+        style={{ cursor: 'pointer' }}
+      />
+
+      {/* Invisible thick line and circle catchers for handles to bridge the hover space */}
+      {hasHandleIn && index > 0 && (
+        <>
+          <line
+            x1={pt.x}
+            y1={pt.y}
+            x2={inX}
+            y2={inY}
+            stroke="none"
+            strokeWidth="60"
+            pointerEvents="all"
+            style={{ cursor: 'pointer' }}
+          />
+          <circle
+            cx={inX}
+            cy={inY}
+            r="30"
+            fill="none"
+            pointerEvents="all"
+            style={{ cursor: 'pointer' }}
+          />
+        </>
+      )}
+
+      {hasHandleOut && index < totalPoints - 1 && (
+        <>
+          <line
+            x1={pt.x}
+            y1={pt.y}
+            x2={outX}
+            y2={outY}
+            stroke="none"
+            strokeWidth="60"
+            pointerEvents="all"
+            style={{ cursor: 'pointer' }}
+          />
+          <circle
+            cx={outX}
+            cy={outY}
+            r="30"
+            fill="none"
+            pointerEvents="all"
+            style={{ cursor: 'pointer' }}
+          />
+        </>
+      )}
+
       {/* Handle connector lines */}
       {hasHandleIn && index > 0 && (
         <line
+          className="handle-line"
           x1={pt.x}
           y1={pt.y}
           x2={inX}
@@ -52,6 +122,7 @@ export const Point: React.FC<PointProps> = ({
       )}
       {hasHandleOut && index < totalPoints - 1 && (
         <line
+          className="handle-line"
           x1={pt.x}
           y1={pt.y}
           x2={outX}
@@ -66,6 +137,7 @@ export const Point: React.FC<PointProps> = ({
       {/* Handle incoming control knob */}
       {hasHandleIn && index > 0 && (
         <circle
+          className="handle-knob"
           cx={inX}
           cy={inY}
           r="4.5"
@@ -81,6 +153,7 @@ export const Point: React.FC<PointProps> = ({
       {/* Handle outgoing control knob */}
       {hasHandleOut && index < totalPoints - 1 && (
         <circle
+          className="handle-knob"
           cx={outX}
           cy={outY}
           r="4.5"
