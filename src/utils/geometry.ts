@@ -3,6 +3,10 @@ export interface Point {
   y: number;
   id: string;
   isFixed?: boolean;
+  // Relative control handle offsets from the anchor (x, y)
+  // handleIn controls the incoming curve, handleOut controls the outgoing curve
+  handleIn?: { dx: number; dy: number };
+  handleOut?: { dx: number; dy: number };
 }
 
 export interface Tube {
@@ -45,13 +49,58 @@ export const formatLength = (inches: number, useMetric: boolean = false): string
 };
 
 /**
- * Calculates the exact SVG path and physical length of a glass tube,
- * taking into account rounded bends at intermediate control points.
+ * Calculates a point coordinate on a cubic Bezier curve at parameter t (0 to 1).
+ */
+export const bezierPoint = (
+  p0: { x: number; y: number },
+  c0: { x: number; y: number },
+  c1: { x: number; y: number },
+  p1: { x: number; y: number },
+  t: number
+): { x: number; y: number } => {
+  const mt = 1 - t;
+  const mt2 = mt * mt;
+  const mt3 = mt2 * mt;
+  const t2 = t * t;
+  const t3 = t2 * t;
+
+  return {
+    x: mt3 * p0.x + 3 * mt2 * t * c0.x + 3 * mt * t2 * c1.x + t3 * p1.x,
+    y: mt3 * p0.y + 3 * mt2 * t * c0.y + 3 * mt * t2 * c1.y + t3 * p1.y
+  };
+};
+
+/**
+ * Calculates the tangent vector of a cubic Bezier curve at parameter t (0 to 1).
+ * Returns a normalized direction vector.
+ */
+export const bezierTangent = (
+  p0: { x: number; y: number },
+  c0: { x: number; y: number },
+  c1: { x: number; y: number },
+  p1: { x: number; y: number },
+  t: number
+): { x: number; y: number } => {
+  const mt = 1 - t;
+  const mt2 = mt * mt;
+  const t2 = t * t;
+
+  // B'(t) = 3*(1-t)^2*(c0 - p0) + 6*(1-t)*t*(c1 - c0) + 3*t^2*(p1 - c1)
+  const dx = 3 * mt2 * (c0.x - p0.x) + 6 * mt * t * (c1.x - c0.x) + 3 * t2 * (p1.x - c1.x);
+  const dy = 3 * mt2 * (c0.y - p0.y) + 6 * mt * t * (c1.y - c0.y) + 3 * t2 * (p1.y - c1.y);
+
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 0.001) return { x: 1, y: 0 };
+  return { x: dx / len, y: dy / len };
+};
+
+/**
+ * Calculates the exact SVG cubic Bezier path and physical length of a glass tube.
  */
 export const calculateTubeGeometry = (
   points: Point[],
-  radiusInches: number = 0.75 // Default bend radius of 0.75 inches for glass
-): { pathData: string; physicalLengthInches: number; arcDetails: { center: {x:number, y:number}, radius: number }[] } => {
+  _radiusInches: number = 0.75 // Retained for signature compatibility, unused now
+): { pathData: string; physicalLengthInches: number; arcDetails: any[] } => {
   if (points.length === 0) {
     return { pathData: '', physicalLengthInches: 0, arcDetails: [] };
   }
@@ -59,165 +108,122 @@ export const calculateTubeGeometry = (
     return { pathData: `M ${points[0].x} ${points[0].y}`, physicalLengthInches: 0, arcDetails: [] };
   }
 
-  const R = radiusInches * SCALE; // Radius in pixels
   let pathData = `M ${points[0].x} ${points[0].y}`;
-  let straightLengthPx = 0;
-  let arcLengthPx = 0;
-  const arcDetails: { center: {x:number, y:number}, radius: number }[] = [];
+  let totalLengthPx = 0;
 
-  // If only 2 points, it's a straight line
-  if (points.length === 2) {
-    const length = dist(points[0], points[1]);
-    return {
-      pathData: `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`,
-      physicalLengthInches: pxToInches(length),
-      arcDetails: []
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i];
+    const p1 = points[i + 1];
+
+    // Compute absolute handle coordinates from relative offsets
+    const c0 = {
+      x: p0.x + (p0.handleOut?.dx ?? 0),
+      y: p0.y + (p0.handleOut?.dy ?? 0)
     };
+    const c1 = {
+      x: p1.x + (p1.handleIn?.dx ?? 0),
+      y: p1.y + (p1.handleIn?.dy ?? 0)
+    };
+
+    // Draw the cubic Bezier curve segment
+    pathData += ` C ${c0.x} ${c0.y}, ${c1.x} ${c1.y}, ${p1.x} ${p1.y}`;
+
+    // Precise numerical length integration
+    let segmentLength = 0;
+    let prevPt = { x: p0.x, y: p0.y };
+    const N = 30; // 30 linear steps per segment
+    for (let j = 1; j <= N; j++) {
+      const t = j / N;
+      const currPt = bezierPoint(p0, c0, c1, p1, t);
+      segmentLength += dist(prevPt, currPt);
+      prevPt = currPt;
+    }
+    totalLengthPx += segmentLength;
   }
-
-  // Multi-point path with rounded corners
-  const activePoints = points;
-  let currentStart: { x: number; y: number } = activePoints[0];
-
-  for (let i = 1; i < activePoints.length - 1; i++) {
-    const A = activePoints[i - 1];
-    const B = activePoints[i];
-    const C = activePoints[i + 1];
-
-    // Vectors
-    const u = { x: A.x - B.x, y: A.y - B.y };
-    const v = { x: C.x - B.x, y: C.y - B.y };
-
-    const distA = dist(A, B);
-    const distC = dist(C, B);
-
-    if (distA < 0.1 || distC < 0.1) {
-      continue;
-    }
-
-    // Normalize
-    const uHat = { x: u.x / distA, y: u.y / distA };
-    const vHat = { x: v.x / distC, y: v.y / distC };
-
-    // Dot product & Angle
-    const dot = uHat.x * vHat.x + uHat.y * vHat.y;
-    const clampedDot = Math.max(-1, Math.min(1, dot));
-    const beta = Math.acos(clampedDot); // Angle ABC in radians
-
-    // If angle is straight or near-straight, do not round
-    if (beta > Math.PI - 0.05 || beta < 0.05) {
-      pathData += ` L ${B.x} ${B.y}`;
-      straightLengthPx += dist(currentStart, B);
-      currentStart = B;
-      continue;
-    }
-
-    // Turn angle
-    const phi = Math.PI - beta;
-
-    // Tangent length T = R * tan(phi / 2)
-    let T = R * Math.tan(phi / 2);
-
-    // Safety: cap tangent length to 45% of segment lengths to avoid overlapping arcs
-    const maxT = Math.min(distA, distC) * 0.45;
-    let actualR = R;
-    if (T > maxT) {
-      T = maxT;
-      actualR = T / Math.tan(phi / 2);
-    }
-
-    // Tangent points
-    const S = { x: B.x + uHat.x * T, y: B.y + uHat.y * T };
-    const E = { x: B.x + vHat.x * T, y: B.y + vHat.y * T };
-
-    // Line from currentStart to tangent start S
-    pathData += ` L ${S.x} ${S.y}`;
-    straightLengthPx += dist(currentStart, S);
-
-    // Arc from S to E
-    // Determing Sweep Flag using 2D cross product of normalized direction vectors
-    // dir1 (B -> S) and dir2 (B -> E)
-    const cross = uHat.x * vHat.y - uHat.y * vHat.x;
-    const sweepFlag = cross < 0 ? 1 : 0;
-
-    pathData += ` A ${actualR} ${actualR} 0 0 ${sweepFlag} ${E.x} ${E.y}`;
-    
-    // Add physical arc length
-    const arcLen = actualR * phi;
-    arcLengthPx += arcLen;
-
-    // Store arc details for display if needed
-    arcDetails.push({
-      center: B, // Approximate center of bend
-      radius: actualR
-    });
-
-    currentStart = E;
-  }
-
-  // Final line segment to last point
-  const lastPoint = activePoints[activePoints.length - 1];
-  pathData += ` L ${lastPoint.x} ${lastPoint.y}`;
-  straightLengthPx += dist(currentStart, lastPoint);
-
-  const totalLengthPx = straightLengthPx + arcLengthPx;
 
   return {
     pathData,
     physicalLengthInches: pxToInches(totalLengthPx),
-    arcDetails
+    arcDetails: []
   };
 };
 
 /**
  * Finds the nearest point on a polyline segment to a click coordinate.
- * Used for inserting new control points or cutting segments.
+ * Upgraded to support high-resolution subdivision of cubic Bezier splines.
  */
 export const findNearestPointOnPath = (
   clickPt: { x: number; y: number },
   points: Point[],
   thresholdPx: number = 20
-): { segmentIndex: number; point: { x: number; y: number }; distance: number } | null => {
+): { segmentIndex: number; point: { x: number; y: number }; distance: number; t: number } | null => {
+  if (points.length < 2) return null;
+
   let minDistance = Infinity;
   let nearestSegmentIndex = -1;
   let nearestPoint = { x: 0, y: 0 };
+  let nearestT = 0;
 
   for (let i = 0; i < points.length - 1; i++) {
-    const p1 = points[i];
-    const p2 = points[i + 1];
+    const p0 = points[i];
+    const p1 = points[i + 1];
 
-    const A = clickPt.x - p1.x;
-    const B = clickPt.y - p1.y;
-    const C = p2.x - p1.x;
-    const D = p2.y - p1.y;
+    const c0 = {
+      x: p0.x + (p0.handleOut?.dx ?? 0),
+      y: p0.y + (p0.handleOut?.dy ?? 0)
+    };
+    const c1 = {
+      x: p1.x + (p1.handleIn?.dx ?? 0),
+      y: p1.y + (p1.handleIn?.dy ?? 0)
+    };
 
-    const dotProduct = A * C + B * D;
-    const lenSq = C * C + D * D;
-    let param = -1;
+    // Subdivide Bezier segment into K straight lines to find closest point on curve
+    const K = 25;
 
-    if (lenSq !== 0) {
-      param = dotProduct / lenSq;
-    }
+    for (let j = 1; j <= K; j++) {
+      const tStart = (j - 1) / K;
+      const tEnd = j / K;
+      const ptStart = bezierPoint(p0, c0, c1, p1, tStart);
+      const ptEnd = bezierPoint(p0, c0, c1, p1, tEnd);
 
-    let xx, yy;
+      const A = clickPt.x - ptStart.x;
+      const B = clickPt.y - ptStart.y;
+      const C = ptEnd.x - ptStart.x;
+      const D = ptEnd.y - ptStart.y;
 
-    if (param < 0) {
-      xx = p1.x;
-      yy = p1.y;
-    } else if (param > 1) {
-      xx = p2.x;
-      yy = p2.y;
-    } else {
-      xx = p1.x + param * C;
-      yy = p1.y + param * D;
-    }
+      const dotProduct = A * C + B * D;
+      const lenSq = C * C + D * D;
+      let param = -1;
 
-    const distance = Math.sqrt((clickPt.x - xx) ** 2 + (clickPt.y - yy) ** 2);
+      if (lenSq !== 0) {
+        param = dotProduct / lenSq;
+      }
 
-    if (distance < minDistance) {
-      minDistance = distance;
-      nearestSegmentIndex = i;
-      nearestPoint = { x: xx, y: yy };
+      let xx, yy;
+      let subT;
+
+      if (param < 0) {
+        xx = ptStart.x;
+        yy = ptStart.y;
+        subT = tStart;
+      } else if (param > 1) {
+        xx = ptEnd.x;
+        yy = ptEnd.y;
+        subT = tEnd;
+      } else {
+        xx = ptStart.x + param * C;
+        yy = ptStart.y + param * D;
+        subT = tStart + param * (tEnd - tStart);
+      }
+
+      const distance = Math.sqrt((clickPt.x - xx) ** 2 + (clickPt.y - yy) ** 2);
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestSegmentIndex = i;
+        nearestPoint = { x: xx, y: yy };
+        nearestT = subT;
+      }
     }
   }
 
@@ -225,7 +231,8 @@ export const findNearestPointOnPath = (
     return {
       segmentIndex: nearestSegmentIndex,
       point: nearestPoint,
-      distance: minDistance
+      distance: minDistance,
+      t: nearestT
     };
   }
 

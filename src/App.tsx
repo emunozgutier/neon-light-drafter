@@ -42,10 +42,20 @@ function App() {
         diameter: 10,     // 10mm standard
         maxLengthInches: 48, // 4 feet
         points: [
-          { id: generateId(), x: centerX - lengthPx / 2, y: centerY },
-          { id: generateId(), x: centerX - lengthPx / 4, y: centerY },
-          { id: generateId(), x: centerX + lengthPx / 4, y: centerY },
-          { id: generateId(), x: centerX + lengthPx / 2, y: centerY }
+          {
+            id: generateId(),
+            x: centerX - lengthPx / 2,
+            y: centerY,
+            handleIn: { dx: -lengthPx / 6, dy: 0 },
+            handleOut: { dx: lengthPx / 6, dy: 0 }
+          },
+          {
+            id: generateId(),
+            x: centerX + lengthPx / 2,
+            y: centerY,
+            handleIn: { dx: -lengthPx / 6, dy: 0 },
+            handleOut: { dx: lengthPx / 6, dy: 0 }
+          }
         ]
       }
     ];

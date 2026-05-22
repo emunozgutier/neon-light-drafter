@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import type { Point, Tube } from '../utils/geometry';
-import { SCALE, calculateTubeGeometry, findNearestPointOnPath, dist, generateId, formatLength } from '../utils/geometry';
+import { SCALE, calculateTubeGeometry, findNearestPointOnPath, dist, generateId, formatLength, bezierTangent } from '../utils/geometry';
 import { SheetGrid } from './SheetGrid';
 
 interface NeonCanvasProps {
@@ -73,6 +73,10 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
   const [draggingTube, setDraggingTube] = useState<string | null>(null);
   const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
   const [dragStartPoints, setDragStartPoints] = useState<Point[] | null>(null);
+
+  // Bezier curve handle and ghost point states
+  const [draggingHandle, setDraggingHandle] = useState<{ tubeId: string; pointId: string; handleType: 'in' | 'out' } | null>(null);
+  const [hoveredGhostPoint, setHoveredGhostPoint] = useState<{ x: number; y: number; segmentIndex: number; t: number; tubeId: string } | null>(null);
   
   // Hover & Weld preview states
   const [hoveredSegment, setHoveredSegment] = useState<{
@@ -94,10 +98,10 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
     if (!svgRef.current) return { x: 0, y: 0 };
     const rect = svgRef.current.getBoundingClientRect();
     
-    // Support coordinate scaling on zoomed svg viewBox
+    // Support coordinate scaling on zoomed svg viewBox and subtract group translation offset (translate(80, 50))
     return {
-      x: (e.clientX - rect.left) / zoom,
-      y: (e.clientY - rect.top) / zoom
+      x: (e.clientX - rect.left) / zoom - 80,
+      y: (e.clientY - rect.top) / zoom - 50
     };
   };
 
@@ -292,7 +296,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
     };
   }, []);
 
-  // Handle segment hovering in Cut mode
+  // Handle segment hovering and dragging interactions
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (isPanning) {
       if (containerRef.current) {
@@ -306,7 +310,42 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
 
     const mousePos = getSVGCoords(e);
 
-    // 1. DRAGGING NODE ACTION
+    // 1. DRAGGING HANDLE INTERACTION
+    if (draggingHandle) {
+      const { tubeId, pointId, handleType } = draggingHandle;
+      setTubes(prev =>
+        prev.map(t => {
+          if (t.id !== tubeId) return t;
+          return {
+            ...t,
+            points: t.points.map(p => {
+              if (p.id !== pointId) return p;
+
+              // Calculate relative displacement from the anchor
+              const dx = mousePos.x - p.x;
+              const dy = mousePos.y - p.y;
+
+              if (handleType === 'in') {
+                return {
+                  ...p,
+                  handleIn: { dx, dy },
+                  handleOut: { dx: -dx, dy: -dy } // Symmetric angle & length mirroring
+                };
+              } else {
+                return {
+                  ...p,
+                  handleOut: { dx, dy },
+                  handleIn: { dx: -dx, dy: -dy } // Symmetric angle & length mirroring
+                };
+              }
+            })
+          };
+        })
+      );
+      return;
+    }
+
+    // 2. DRAGGING NODE ACTION
     if (draggingNode) {
       const { tubeId, pointId } = draggingNode;
       let newX = mousePos.x;
@@ -363,7 +402,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
         setWeldPreview(null);
       }
 
-      // Update node coordinate
+      // Update node coordinate (relative handles move in lockstep automatically)
       setTubes(prev =>
         prev.map(t => {
           if (t.id !== tubeId) return t;
@@ -379,7 +418,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
       return;
     }
 
-    // 2. DRAGGING ENTIRE TUBE
+    // 3. DRAGGING ENTIRE TUBE
     if (draggingTube && dragStartPos && dragStartPoints) {
       const dx = mousePos.x - dragStartPos.x;
       const dy = mousePos.y - dragStartPos.y;
@@ -400,9 +439,41 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
       return;
     }
 
-    // 3. HOVERING PREVIEWS
+    // 4. GHOST NODE DETECTION (ONLY IN SELECT/BEND MODES)
+    if (!draggingNode && !draggingTube && !draggingHandle && (tool === 'select' || tool === 'bend')) {
+      let closestGhost: typeof hoveredGhostPoint = null;
+      let minDistance = Infinity;
+
+      for (const tube of tubes) {
+        const proj = findNearestPointOnPath(mousePos, tube.points, 24); // 24px active hover buffer
+        if (proj) {
+          // Verify that mouse is far enough from any existing anchors
+          let farFromAnchors = true;
+          for (const pt of tube.points) {
+            if (dist(proj.point, pt) < 32) { // 32px distance threshold
+              farFromAnchors = false;
+              break;
+            }
+          }
+          if (farFromAnchors && proj.distance < minDistance) {
+            minDistance = proj.distance;
+            closestGhost = {
+              x: proj.point.x,
+              y: proj.point.y,
+              segmentIndex: proj.segmentIndex,
+              t: proj.t,
+              tubeId: tube.id
+            };
+          }
+        }
+      }
+      setHoveredGhostPoint(closestGhost);
+    } else {
+      setHoveredGhostPoint(null);
+    }
+
+    // 5. HOVERING PREVIEWS FOR CUT
     if (tool === 'cut') {
-      // Search for nearest segment to mouse
       let closestSegment: typeof hoveredSegment = null;
       let minDistance = Infinity;
 
@@ -443,6 +514,55 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
 
     if (!isLeftButton) return;
 
+    // INTERCEPT PULSING GHOST POINT CLICK TO INSERT A NODE
+    if (hoveredGhostPoint && (tool === 'select' || tool === 'bend')) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const { x, y, segmentIndex, t, tubeId } = hoveredGhostPoint;
+      const targetTube = tubes.find(t => t.id === tubeId);
+      
+      if (targetTube) {
+        const p0 = targetTube.points[segmentIndex];
+        const p1 = targetTube.points[segmentIndex + 1];
+        const c0 = { x: p0.x + (p0.handleOut?.dx ?? 0), y: p0.y + (p0.handleOut?.dy ?? 0) };
+        const c1 = { x: p1.x + (p1.handleIn?.dx ?? 0), y: p1.y + (p1.handleIn?.dy ?? 0) };
+
+        // Compute curve tangent slope at fractional parameter t to align new handles smoothly
+        const tangent = bezierTangent(p0, c0, c1, p1, t);
+        const handleLength = 40; // 40px default curvature amplitude
+        const newNodeId = generateId();
+
+        const newPoint: Point = {
+          id: newNodeId,
+          x,
+          y,
+          handleIn: { dx: -tangent.x * handleLength, dy: -tangent.y * handleLength },
+          handleOut: { dx: tangent.x * handleLength, dy: tangent.y * handleLength }
+        };
+
+        const updatedPoints = [
+          ...targetTube.points.slice(0, segmentIndex + 1),
+          newPoint,
+          ...targetTube.points.slice(segmentIndex + 1)
+        ];
+
+        setTubes(prev =>
+          prev.map(t => {
+            if (t.id !== tubeId) return t;
+            return { ...t, points: updatedPoints };
+          })
+        );
+        
+        setSelectedTubeId(tubeId);
+        setHoveredGhostPoint(null);
+
+        // Start dragging the new node immediately for professional responsiveness
+        setDraggingNode({ tubeId, pointId: newNodeId });
+      }
+      return;
+    }
+
     const mousePos = getSVGCoords(e);
 
     // If clicking background and tool is 'add', spawn a new tube
@@ -459,10 +579,20 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           diameter: 10,
           maxLengthInches: 48,
           points: [
-            { id: generateId(), x: mousePos.x - lengthPx / 4, y: mousePos.y },
-            { id: generateId(), x: mousePos.x - lengthPx / 8, y: mousePos.y },
-            { id: generateId(), x: mousePos.x + lengthPx / 8, y: mousePos.y },
-            { id: generateId(), x: mousePos.x + lengthPx / 4, y: mousePos.y }
+            {
+              id: generateId(),
+              x: mousePos.x - lengthPx / 2,
+              y: mousePos.y,
+              handleIn: { dx: -lengthPx / 6, dy: 0 },
+              handleOut: { dx: lengthPx / 6, dy: 0 }
+            },
+            {
+              id: generateId(),
+              x: mousePos.x + lengthPx / 2,
+              y: mousePos.y,
+              handleIn: { dx: -lengthPx / 6, dy: 0 },
+              handleOut: { dx: lengthPx / 6, dy: 0 }
+            }
           ]
         };
         setTubes(prev => [...prev, newTube]);
@@ -476,6 +606,15 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
       setIsPanning(false);
       return;
     }
+
+    // Helper: Reverse points along with swapping handleIn and handleOut offsets
+    const reversePoints = (pts: Point[]): Point[] => {
+      return [...pts].reverse().map(p => ({
+        ...p,
+        handleIn: p.handleOut,
+        handleOut: p.handleIn
+      }));
+    };
 
     // Handle Snapped Weld Operation on Mouse Up
     if (tool === 'weld' && weldPreview) {
@@ -497,7 +636,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
 
         if (sIsStart && tIsStart) {
           // Reverse target, prepend to source
-          mergedPoints = [...tPoints.reverse(), ...sPoints.slice(1)];
+          mergedPoints = [...reversePoints(tPoints), ...sPoints.slice(1)];
         } else if (sIsStart && tIsEnd) {
           // Target appends directly to source start
           mergedPoints = [...tPoints, ...sPoints.slice(1)];
@@ -506,10 +645,10 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           mergedPoints = [...sPoints, ...tPoints.slice(1)];
         } else if (sIsEnd && tIsEnd) {
           // Target reversed appends to source end
-          mergedPoints = [...sPoints, ...tPoints.reverse().slice(1)];
+          mergedPoints = [...sPoints, ...reversePoints(tPoints).slice(1)];
         }
 
-        // Clean up points (giving them unique IDs just in case, but keep coords)
+        // Clean up points (giving them unique IDs just in case, but keep coords & handles)
         const finalPoints = mergedPoints.map((pt) => ({
           ...pt,
           id: pt.id || generateId()
@@ -534,6 +673,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
 
     setDraggingNode(null);
     setDraggingTube(null);
+    setDraggingHandle(null);
     setDragStartPos(null);
     setDragStartPoints(null);
   };
@@ -594,6 +734,52 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
       // Allow middle click propagation so canvas panning intercepts it!
       return;
     }
+
+    // INTERCEPT PULSING GHOST POINT CLICK TO INSERT A NODE DIRECTLY ON THE TUBE PATH CLICK
+    if (hoveredGhostPoint && hoveredGhostPoint.tubeId === tube.id && (tool === 'select' || tool === 'bend')) {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const { x, y, segmentIndex, t } = hoveredGhostPoint;
+      const p0 = tube.points[segmentIndex];
+      const p1 = tube.points[segmentIndex + 1];
+      const c0 = { x: p0.x + (p0.handleOut?.dx ?? 0), y: p0.y + (p0.handleOut?.dy ?? 0) };
+      const c1 = { x: p1.x + (p1.handleIn?.dx ?? 0), y: p1.y + (p1.handleIn?.dy ?? 0) };
+
+      // Compute curve tangent slope at fractional parameter t to align new handles smoothly
+      const tangent = bezierTangent(p0, c0, c1, p1, t);
+      const handleLength = 40; // 40px default curvature amplitude
+      const newNodeId = generateId();
+
+      const newPoint: Point = {
+        id: newNodeId,
+        x,
+        y,
+        handleIn: { dx: -tangent.x * handleLength, dy: -tangent.y * handleLength },
+        handleOut: { dx: tangent.x * handleLength, dy: tangent.y * handleLength }
+      };
+
+      const updatedPoints = [
+        ...tube.points.slice(0, segmentIndex + 1),
+        newPoint,
+        ...tube.points.slice(segmentIndex + 1)
+      ];
+
+      setTubes(prev =>
+        prev.map(t => {
+          if (t.id !== tube.id) return t;
+          return { ...t, points: updatedPoints };
+        })
+      );
+      
+      setSelectedTubeId(tube.id);
+      setHoveredGhostPoint(null);
+
+      // Start dragging the new node immediately for professional responsiveness
+      setDraggingNode({ tubeId: tube.id, pointId: newNodeId });
+      return;
+    }
+
     e.stopPropagation();
     setSelectedTubeId(tube.id);
     
@@ -859,25 +1045,99 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
             </g>
           )}
 
-          {/* 9. Control Nodes & Handles */}
+          {/* 9. Control Nodes & Handles (Photoshop-style anchors and control handles) */}
           {isSelected && tube.points.map((pt, index) => {
-            const isEnd = index === 0 || index === tube.points.length - 1;
             const isNodeHovered = draggingNode?.pointId === pt.id;
+            const isEnd = index === 0 || index === tube.points.length - 1;
+
+            const hasHandleIn = pt.handleIn && (pt.handleIn.dx !== 0 || pt.handleIn.dy !== 0);
+            const hasHandleOut = pt.handleOut && (pt.handleOut.dx !== 0 || pt.handleOut.dy !== 0);
+
+            const inX = pt.x + (pt.handleIn?.dx ?? 0);
+            const inY = pt.y + (pt.handleIn?.dy ?? 0);
+            const outX = pt.x + (pt.handleOut?.dx ?? 0);
+            const outY = pt.y + (pt.handleOut?.dy ?? 0);
 
             return (
-              <circle
-                key={pt.id}
-                cx={pt.x}
-                cy={pt.y}
-                r={isEnd ? (isNodeHovered ? 9 : 7) : (isNodeHovered ? 7 : 5.5)}
-                fill={isEnd ? '#10b981' : '#c084fc'}
-                stroke="#ffffff"
-                strokeWidth="1.5"
-                cursor="move"
-                style={{ transition: 'r 0.1s ease', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
-                onMouseDown={(e) => handleNodeMouseDown(e, tube.id, pt.id)}
-                onContextMenu={(e) => handleNodeContextMenu(e, tube.id, pt.id)}
-              />
+              <g key={pt.id}>
+                {/* Handle connector lines */}
+                {hasHandleIn && index > 0 && (
+                  <line
+                    x1={pt.x}
+                    y1={pt.y}
+                    x2={inX}
+                    y2={inY}
+                    stroke="rgba(192, 132, 252, 0.75)"
+                    strokeWidth="1.5"
+                    strokeDasharray="2 2"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
+                {hasHandleOut && index < tube.points.length - 1 && (
+                  <line
+                    x1={pt.x}
+                    y1={pt.y}
+                    x2={outX}
+                    y2={outY}
+                    stroke="rgba(192, 132, 252, 0.75)"
+                    strokeWidth="1.5"
+                    strokeDasharray="2 2"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
+
+                {/* Handle incoming control knob */}
+                {hasHandleIn && index > 0 && (
+                  <circle
+                    cx={inX}
+                    cy={inY}
+                    r="4.5"
+                    fill="#c084fc"
+                    stroke="#ffffff"
+                    strokeWidth="1.5"
+                    cursor="pointer"
+                    style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setDraggingHandle({ tubeId: tube.id, pointId: pt.id, handleType: 'in' });
+                    }}
+                  />
+                )}
+
+                {/* Handle outgoing control knob */}
+                {hasHandleOut && index < tube.points.length - 1 && (
+                  <circle
+                    cx={outX}
+                    cy={outY}
+                    r="4.5"
+                    fill="#c084fc"
+                    stroke="#ffffff"
+                    strokeWidth="1.5"
+                    cursor="pointer"
+                    style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setDraggingHandle({ tubeId: tube.id, pointId: pt.id, handleType: 'out' });
+                    }}
+                  />
+                )}
+
+                {/* Main Anchor Point Knob */}
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={isEnd ? (isNodeHovered ? 8.5 : 6.5) : (isNodeHovered ? 7.5 : 5.5)}
+                  fill={isEnd ? '#10b981' : '#38bdf8'}
+                  stroke="#ffffff"
+                  strokeWidth="1.5"
+                  cursor="move"
+                  style={{ transition: 'r 0.1s ease', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+                  onMouseDown={(e) => handleNodeMouseDown(e, tube.id, pt.id)}
+                  onContextMenu={(e) => handleNodeContextMenu(e, tube.id, pt.id)}
+                />
+              </g>
             );
           })}
         </g>
@@ -920,6 +1180,20 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
             sheetCount={sheetCount}
           />
           
+          {/* Ghost point node projection */}
+          {hoveredGhostPoint && (
+            <circle
+              cx={hoveredGhostPoint.x}
+              cy={hoveredGhostPoint.y}
+              r="6.5"
+              fill="var(--accent-blue)"
+              opacity="0.8"
+              stroke="#ffffff"
+              strokeWidth="2"
+              style={{ pointerEvents: 'none', filter: 'drop-shadow(0 0 6px var(--accent-blue))', animation: 'grid-pulse 0.8s infinite' }}
+            />
+          )}
+
           {/* Renders the neon/glass tubes */}
           {renderTubes()}
  
