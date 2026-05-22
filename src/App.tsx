@@ -14,6 +14,16 @@ function App() {
 
   const [isPrintOpen, setIsPrintOpen] = useState(false);
 
+  // Calibration dimensions in inches for target paper
+  const dimsInches = {
+    letter: { portrait: { w: 8.5, h: 11 }, landscape: { w: 11, h: 8.5 } },
+    a4: { portrait: { w: 8.27, h: 11.69 }, landscape: { w: 11.69, h: 8.27 } }
+  };
+
+  const activeDim = dimsInches[sheetType][orientation];
+  const widthPx = activeDim.w * SCALE;
+  const heightPx = activeDim.h * SCALE;
+
   // Sync tubes in real-time to URL hash dynamically
   useEffect(() => {
     const encoded = encodeTubes(tubes);
@@ -24,15 +34,54 @@ function App() {
     }
   }, [tubes]);
 
-  // Calibration dimensions in inches for target paper
-  const dimsInches = {
-    letter: { portrait: { w: 8.5, h: 11 }, landscape: { w: 11, h: 8.5 } },
-    a4: { portrait: { w: 8.27, h: 11.69 }, landscape: { w: 11.69, h: 8.27 } }
-  };
+  // Recover off-screen / negative-coordinate drawings on initial load
+  useEffect(() => {
+    if (tubes.length === 0) return;
 
-  const activeDim = dimsInches[sheetType][orientation];
-  const widthPx = activeDim.w * SCALE;
-  const heightPx = activeDim.h * SCALE;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    tubes.forEach(t => {
+      t.points.forEach(p => {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      });
+    });
+
+    if (minX === Infinity) return;
+
+    const totalWidthPx = 6 * activeDim.w * SCALE;
+    const totalHeightPx = 5 * activeDim.h * SCALE;
+
+    const isOffScreen = maxX < 0 || minX > totalWidthPx || maxY < 0 || minY > totalHeightPx;
+
+    if (isOffScreen) {
+      const designCenterX = (minX + maxX) / 2;
+      const designCenterY = (minY + maxY) / 2;
+
+      const targetCenterX = totalWidthPx / 2;
+      const targetCenterY = totalHeightPx / 2;
+
+      const dx = Math.round(targetCenterX - designCenterX);
+      const dy = Math.round(targetCenterY - designCenterY);
+
+      useCanvas.getState().setTubes(prev =>
+        prev.map(t => ({
+          ...t,
+          points: t.points.map(p => ({
+            ...p,
+            x: Math.round(p.x + dx),
+            y: Math.round(p.y + dy)
+          }))
+        })),
+        true // Skip history on recovery
+      );
+    }
+  }, []);
 
   return (
     <>

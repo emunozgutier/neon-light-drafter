@@ -101,6 +101,36 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
     );
   };
 
+  // Automatically trigger auto-center when the modal mounts if the design is currently off-sheet/off-screen
+  React.useEffect(() => {
+    if (tubes.length === 0) return;
+    
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    tubes.forEach(t => {
+      t.points.forEach(p => {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      });
+    });
+
+    if (minX === Infinity) return;
+
+    const contentCenterX = (minX + maxX) / 2;
+    const contentCenterY = (minY + maxY) / 2;
+
+    const isOffSheet = contentCenterX < 0 || contentCenterX > widthPx || contentCenterY < 0 || contentCenterY > heightPx;
+
+    if (isOffSheet) {
+      handleAutoCenter();
+    }
+  }, []);
+
   // Micro adjustments in pixels (e.g. 5px steps or 1px shifts)
   const handleTranslate = (dx: number, dy: number, skipHistory = false) => {
     setTubes(prev =>
