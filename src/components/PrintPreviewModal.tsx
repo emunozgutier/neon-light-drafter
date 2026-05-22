@@ -14,7 +14,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
     orientation,
     setOrientation,
     bendRadius,
-    useMetric
+    useMetric,
+    printRotation,
+    setPrintRotation
   } = useSideMenu();
 
   const {
@@ -44,6 +46,17 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
   const previewScale = Math.min(maxPreviewWidth / widthPx, maxPreviewHeight / heightPx);
   const scaledWidth = widthPx * previewScale;
   const scaledHeight = heightPx * previewScale;
+
+  // Helper to rotate vectors by the print rotation angle (counteracting the display tilt)
+  const rotateVector = (vx: number, vy: number, angleDegrees: number) => {
+    const rad = -angleDegrees * Math.PI / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    return {
+      x: vx * cos - vy * sin,
+      y: vx * sin + vy * cos
+    };
+  };
 
   // Auto-Center math
   const handleAutoCenter = () => {
@@ -114,7 +127,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
     const dy = (e.clientY - dragStart.y) / previewScale;
 
     if (Math.abs(dx) >= 0.5 || Math.abs(dy) >= 0.5) {
-      handleTranslate(dx, dy);
+      // Compensate for preview sheet visual rotation
+      const rotated = rotateVector(dx, dy, printRotation);
+      handleTranslate(rotated.x, rotated.y);
       setDragStart({ x: e.clientX, y: e.clientY });
     }
   };
@@ -286,12 +301,13 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
                 </g>
               )}
 
-              {/* RENDER TUBES ON SHEET PREVIEW */}
-              {tubes.map(t => {
-                const { pathData } = calculateTubeGeometry(t.points, bendRadius);
-                const strokeWidth = (t.diameter / 10) * 8;
+              {/* RENDER TUBES ON SHEET PREVIEW (Rotatable group) */}
+              <g transform={`rotate(${printRotation}, ${widthPx / 2}, ${heightPx / 2})`}>
+                {tubes.map(t => {
+                  const { pathData } = calculateTubeGeometry(t.points, bendRadius);
+                  const strokeWidth = (t.diameter / 10) * 8;
 
-                if (printStyle === 'bending') {
+                  if (printStyle === 'bending') {
                   // Bending Template Mode: Pristine High-Contrast Shop Drawing (Solid Outlines)
                   return (
                     <g key={t.id}>
@@ -378,6 +394,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
                   );
                 }
               })}
+              </g>
 
               {/* 1:1 Scale Calibration Block (CAD Standard) */}
               <g transform={`translate(${widthPx - 60}, ${heightPx - 60})`} style={{ pointerEvents: 'none' }}>
@@ -509,6 +526,55 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
               </div>
             </div>
 
+            {/* Design Tilt & Rotation */}
+            <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>
+                📐 Design Tilt & Rotation
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Rotation Angle:</span>
+                <span style={{ fontSize: '12px', fontFamily: 'var(--mono)', fontWeight: 'bold', color: 'var(--accent-purple)' }}>
+                  {printRotation}°
+                </span>
+              </div>
+              <input
+                type="range"
+                min="-180"
+                max="180"
+                step="1"
+                value={printRotation}
+                onChange={(e) => setPrintRotation(Number(e.target.value))}
+                style={{
+                  width: '100%',
+                  accentColor: 'var(--accent-purple)',
+                  marginBottom: '10px',
+                  cursor: 'pointer'
+                }}
+              />
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {[-90, 0, 90, 180].map((angle) => (
+                  <button
+                    key={angle}
+                    onClick={() => setPrintRotation(angle)}
+                    style={{
+                      flex: 1,
+                      height: '24px',
+                      borderRadius: '4px',
+                      backgroundColor: printRotation === angle ? 'rgba(192, 132, 252, 0.15)' : '#1b1d26',
+                      border: printRotation === angle ? '1px solid var(--accent-purple)' : '1px solid var(--border-glass)',
+                      color: printRotation === angle ? 'var(--accent-purple)' : 'var(--text-secondary)',
+                      fontSize: '10.5px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    {angle === 0 ? 'Reset (0°)' : `${angle > 0 ? '+' : ''}${angle}°`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Print Aesthetics Settings */}
             <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
               <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>
@@ -637,7 +703,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 30px)', gridTemplateRows: 'repeat(2, 30px)', gap: '4px', justifyContent: 'center' }}>
                   <div />
                   <button
-                    onClick={() => handleTranslate(0, -5)}
+                    onClick={() => { const r = rotateVector(0, -5, printRotation); handleTranslate(r.x, r.y); }}
                     title="Move Up 5px"
                     style={{ height: '30px', width: '30px', borderRadius: '4px', border: '1px solid var(--border-glass)', backgroundColor: '#1b1d26', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
@@ -645,21 +711,21 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
                   </button>
                   <div />
                   <button
-                    onClick={() => handleTranslate(-5, 0)}
+                    onClick={() => { const r = rotateVector(-5, 0, printRotation); handleTranslate(r.x, r.y); }}
                     title="Move Left 5px"
                     style={{ height: '30px', width: '30px', borderRadius: '4px', border: '1px solid var(--border-glass)', backgroundColor: '#1b1d26', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     ◀
                   </button>
                   <button
-                    onClick={() => handleTranslate(0, 5)}
+                    onClick={() => { const r = rotateVector(0, 5, printRotation); handleTranslate(r.x, r.y); }}
                     title="Move Down 5px"
                     style={{ height: '30px', width: '30px', borderRadius: '4px', border: '1px solid var(--border-glass)', backgroundColor: '#1b1d26', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     ▼
                   </button>
                   <button
-                    onClick={() => handleTranslate(5, 0)}
+                    onClick={() => { const r = rotateVector(5, 0, printRotation); handleTranslate(r.x, r.y); }}
                     title="Move Right 5px"
                     style={{ height: '30px', width: '30px', borderRadius: '4px', border: '1px solid var(--border-glass)', backgroundColor: '#1b1d26', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >

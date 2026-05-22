@@ -16,6 +16,7 @@ export interface SideMenuState {
   refImageY: number;
   isRefImageLocked: boolean;
   refImageAspectRatio: number;
+  printRotation: number;
 
   setSheetType: (type: 'letter' | 'a4') => void;
   setOrientation: (orientation: 'portrait' | 'landscape') => void;
@@ -32,6 +33,7 @@ export interface SideMenuState {
   setRefImageY: (y: number) => void;
   setIsRefImageLocked: (locked: boolean) => void;
   setRefImageAspectRatio: (ratio: number) => void;
+  setPrintRotation: (rotation: number) => void;
 }
 
 export const useSideMenu = create<SideMenuState>((set) => ({
@@ -50,6 +52,7 @@ export const useSideMenu = create<SideMenuState>((set) => ({
   refImageY: 0,
   isRefImageLocked: true,
   refImageAspectRatio: 1.0,
+  printRotation: 0,
 
   setSheetType: (sheetType) => set({ sheetType }),
   setOrientation: (orientation) => set({ orientation }),
@@ -66,4 +69,5 @@ export const useSideMenu = create<SideMenuState>((set) => ({
   setRefImageY: (refImageY) => set({ refImageY }),
   setIsRefImageLocked: (isRefImageLocked) => set({ isRefImageLocked }),
   setRefImageAspectRatio: (refImageAspectRatio) => set({ refImageAspectRatio }),
+  setPrintRotation: (printRotation) => set({ printRotation }),
 }));

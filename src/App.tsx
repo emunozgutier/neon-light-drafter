@@ -9,7 +9,7 @@ import './App.css';
 
 function App() {
   const tubes = useCanvas((state) => state.tubes);
-  const { sheetType, orientation, bendRadius } = useSideMenu();
+  const { sheetType, orientation, bendRadius, printRotation } = useSideMenu();
   const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   // Sync tubes in real-time to URL hash dynamically
@@ -48,93 +48,95 @@ function App() {
           viewBox={`0 0 ${widthPx} ${heightPx}`}
           style={{ display: 'block', background: 'transparent' }}
         >
-          {/* Tubes outlines */}
-          {tubes.map((t) => {
-            const { pathData } = calculateTubeGeometry(t.points, bendRadius);
-            const strokeWidth = (t.diameter / 10) * 8;
+          {/* Tubes outlines (Rotatable group) */}
+          <g transform={`rotate(${printRotation}, ${widthPx / 2}, ${heightPx / 2})`}>
+            {tubes.map((t) => {
+              const { pathData } = calculateTubeGeometry(t.points, bendRadius);
+              const strokeWidth = (t.diameter / 10) * 8;
 
-            return (
-              <g key={t.id}>
-                {/* 1. Bending Template rendering (Thick solid black line with centerline guide) */}
-                <g className="print-bending-path">
-                  <path
-                    d={pathData}
-                    fill="none"
-                    stroke="#000000"
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d={pathData}
-                    fill="none"
-                    stroke="#8b5cf6"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeDasharray="2 3"
-                    opacity="0.85"
-                  />
-                  {/* Anchor points circles to assist bending start/stops */}
-                  {t.points.map((p, idx) => (
-                    <circle
-                      key={p.id}
-                      cx={p.x}
-                      cy={p.y}
-                      r="3.5"
-                      fill={idx === 0 || idx === t.points.length - 1 ? '#ef4444' : '#3b82f6'}
-                      stroke="#ffffff"
-                      strokeWidth="1"
+              return (
+                <g key={t.id}>
+                  {/* 1. Bending Template rendering (Thick solid black line with centerline guide) */}
+                  <g className="print-bending-path">
+                    <path
+                      d={pathData}
+                      fill="none"
+                      stroke="#000000"
+                      strokeWidth={strokeWidth}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     />
-                  ))}
-                </g>
+                    <path
+                      d={pathData}
+                      fill="none"
+                      stroke="#8b5cf6"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeDasharray="2 3"
+                      opacity="0.85"
+                    />
+                    {/* Anchor points circles to assist bending start/stops */}
+                    {t.points.map((p, idx) => (
+                      <circle
+                        key={p.id}
+                        cx={p.x}
+                        cy={p.y}
+                        r="3.5"
+                        fill={idx === 0 || idx === t.points.length - 1 ? '#ef4444' : '#3b82f6'}
+                        stroke="#ffffff"
+                        strokeWidth="1"
+                      />
+                    ))}
+                  </g>
 
-                {/* 2. Neon Showcase rendering (Vibrant ambient neon glow mockup) */}
-                <g className="print-showcase-path">
-                  {/* Ambient neon backglow reflection */}
-                  <path
-                    d={pathData}
-                    fill="none"
-                    stroke={t.color}
-                    strokeWidth={strokeWidth * 3.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity="0.15"
-                  />
-                  {/* Main outer glow overlay */}
-                  <path
-                    d={pathData}
-                    fill="none"
-                    stroke={t.color}
-                    strokeWidth={strokeWidth * 1.8}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity="0.6"
-                  />
-                  {/* Outer neon curve path shell */}
-                  <path
-                    d={pathData}
-                    fill="none"
-                    stroke={t.color}
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity="0.9"
-                  />
-                  {/* High illumination white gas core filament */}
-                  <path
-                    d={pathData}
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth={strokeWidth * 0.25}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity="0.98"
-                  />
+                  {/* 2. Neon Showcase rendering (Vibrant ambient neon glow mockup) */}
+                  <g className="print-showcase-path">
+                    {/* Ambient neon backglow reflection */}
+                    <path
+                      d={pathData}
+                      fill="none"
+                      stroke={t.color}
+                      strokeWidth={strokeWidth * 3.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity="0.15"
+                    />
+                    {/* Main outer glow overlay */}
+                    <path
+                      d={pathData}
+                      fill="none"
+                      stroke={t.color}
+                      strokeWidth={strokeWidth * 1.8}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity="0.6"
+                    />
+                    {/* Outer neon curve path shell */}
+                    <path
+                      d={pathData}
+                      fill="none"
+                      stroke={t.color}
+                      strokeWidth={strokeWidth}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity="0.9"
+                    />
+                    {/* High illumination white gas core filament */}
+                    <path
+                      d={pathData}
+                      fill="none"
+                      stroke="#ffffff"
+                      strokeWidth={strokeWidth * 0.25}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity="0.98"
+                    />
+                  </g>
                 </g>
-              </g>
-            );
-          })}
+              );
+            })}
+          </g>
 
           {/* 1:1 Scale CAD Calibration Box (CAD standard block for physical scaling check) */}
           <g transform={`translate(${widthPx - 60}, ${heightPx - 60})`}>
