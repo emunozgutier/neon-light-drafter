@@ -105,3 +105,51 @@ body {
 .power-on-flicker {
   animation: power-flicker 0.4s ease-in-out;
 }
+
+/* Delete Node Cross Button SVG interactive stylings */
+.delete-node-btn {
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.delete-node-btn:hover {
+  opacity: 1;
+}
+
+.delete-node-btn circle {
+  transition: fill 0.2s ease, r 0.2s ease;
+}
+
+.delete-node-btn:hover circle {
+  fill: #f43f5e; /* Vibrant Rose Red on hover */
+  r: 9;
+}
+
+.delete-node-btn line {
+  transition: stroke-width 0.2s ease;
+}
+
+.delete-node-btn:hover line {
+  stroke-width: 2.2;
+}
+
+/* Drag Entire Tube Button interactive stylings */
+.drag-tube-btn {
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.drag-tube-btn:hover {
+  opacity: 1;
+}
+
+.drag-tube-btn circle {
+  transition: fill 0.2s ease, r 0.2s ease;
+}
+
+.drag-tube-btn:hover circle {
+  fill: #1d4ed8; /* Vibrant royal blue on hover */
+  r: 9;
+}
+
+

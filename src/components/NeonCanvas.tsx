@@ -1137,6 +1137,57 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
                   onMouseDown={(e) => handleNodeMouseDown(e, tube.id, pt.id)}
                   onContextMenu={(e) => handleNodeContextMenu(e, tube.id, pt.id)}
                 />
+
+                {/* Delete Node Button (Cross X) - Rendered only when tube has more than 2 points */}
+                {tube.points.length > 2 && (
+                  <g
+                    className="delete-node-btn"
+                    cursor="pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setTubes(prev =>
+                        prev.map(t => {
+                          if (t.id !== tube.id) return t;
+                          return {
+                            ...t,
+                            points: t.points.filter(p => p.id !== pt.id)
+                          };
+                        })
+                      );
+                    }}
+                  >
+                    {/* Small circular backing */}
+                    <circle
+                      cx={pt.x + 11}
+                      cy={pt.y - 11}
+                      r="7.5"
+                      fill="#ef4444"
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}
+                    />
+                    {/* Cross X shapes */}
+                    <line
+                      x1={pt.x + 8.5}
+                      y1={pt.y - 13.5}
+                      x2={pt.x + 13.5}
+                      y2={pt.y - 8.5}
+                      stroke="#ffffff"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                    <line
+                      x1={pt.x + 13.5}
+                      y1={pt.y - 13.5}
+                      x2={pt.x + 8.5}
+                      y2={pt.y - 8.5}
+                      stroke="#ffffff"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </g>
+                )}
               </g>
             );
           })}
