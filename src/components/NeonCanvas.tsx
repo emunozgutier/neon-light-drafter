@@ -1188,6 +1188,55 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
                     />
                   </g>
                 )}
+
+                {/* Drag Entire Tube Button (Move Icon) - Rendered only at Endpoints (Start and End nodes) */}
+                {isEnd && (
+                  <g
+                    className="drag-tube-btn"
+                    cursor="move"
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      const mousePos = getSVGCoords(e as unknown as React.MouseEvent<SVGSVGElement>);
+                      setDraggingTube(tube.id);
+                      setDragStartPos(mousePos);
+                      setDragStartPoints([...tube.points]);
+                    }}
+                  >
+                    {/* Circle backing */}
+                    <circle
+                      cx={pt.x - 11}
+                      cy={pt.y + 11}
+                      r="7.5"
+                      fill="#3b82f6"
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}
+                    />
+                    {/* Move/Pan Icon inside circle (Horizontal and vertical crosshair arrows) */}
+                    <line
+                      x1={pt.x - 14.5}
+                      y1={pt.y + 11}
+                      x2={pt.x - 7.5}
+                      y2={pt.y + 11}
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                    />
+                    <line
+                      x1={pt.x - 11}
+                      y1={pt.y + 7.5}
+                      x2={pt.x - 11}
+                      y2={pt.y + 14.5}
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                    />
+                    {/* Arrowheads for horizontal and vertical lines */}
+                    <polygon points={`${pt.x - 15.5},${pt.y + 11} ${pt.x - 13.5},${pt.y + 9.5} ${pt.x - 13.5},${pt.y + 12.5}`} fill="#ffffff" />
+                    <polygon points={`${pt.x - 6.5},${pt.y + 11} ${pt.x - 8.5},${pt.y + 9.5} ${pt.x - 8.5},${pt.y + 12.5}`} fill="#ffffff" />
+                    <polygon points={`${pt.x - 11},${pt.y + 6.5} ${pt.x - 12.5},${pt.y + 8.5} ${pt.x - 9.5},${pt.y + 8.5}`} fill="#ffffff" />
+                    <polygon points={`${pt.x - 11},${pt.y + 15.5} ${pt.x - 12.5},${pt.y + 13.5} ${pt.x - 9.5},${pt.y + 13.5}`} fill="#ffffff" />
+                  </g>
+                )}
               </g>
             );
           })}
