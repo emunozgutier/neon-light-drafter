@@ -33,6 +33,14 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
   snapToGrid
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [zoom, setZoom] = useState<number>(1.0); // Default to 100% zoom
+
+  // Panning and Spacebar states
+  const [spacePressed, setSpacePressed] = useState<boolean>(false);
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [panScrollStart, setPanScrollStart] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
 
   // Dimensions in inches
   const dimsInches = {
@@ -75,30 +83,121 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
     if (!svgRef.current) return { x: 0, y: 0 };
     const rect = svgRef.current.getBoundingClientRect();
     
-    // Support basic pan/zoom coordinates if scaled
+    // Support coordinate scaling on zoomed svg viewBox
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      x: (e.clientX - rect.left) / zoom,
+      y: (e.clientY - rect.top) / zoom
     };
   };
 
-  // Keyboard handlers (e.g. delete selected node)
+  // Spacebar and standard key keyboard handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Intercept Spacebar to enable canvas panning (block standard page scroll)
+      if (e.code === 'Space') {
+        const active = document.activeElement;
+        const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.getAttribute('contenteditable') === 'true');
+        if (!isInput) {
+          e.preventDefault();
+          setSpacePressed(true);
+        }
+      }
+      // Delete selected tube
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedTubeId) {
-        // If a middle node is selected (indicated by some state, but to keep it simple,
-        // let's let middle nodes be right-clicked to delete, or delete the entire tube)
-        // If they just press delete, we can delete the selected tube!
         setTubes(prev => prev.filter(t => t.id !== selectedTubeId));
         setSelectedTubeId(null);
       }
     };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setSpacePressed(false);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, [selectedTubeId, setSelectedTubeId, setTubes]);
+
+  // Prevent panning/space from getting stuck if browser window loses focus
+  useEffect(() => {
+    const handleBlur = () => {
+      setSpacePressed(false);
+      setIsPanning(false);
+    };
+    window.addEventListener('blur', handleBlur);
+    return () => window.removeEventListener('blur', handleBlur);
+  }, []);
+
+  // Global mouseup release to safely clear any panning drag operations
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      setIsPanning(false);
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
+
+  // Imperative non-passive wheel event handler for zooming with mouse wheel (direct scrolling!)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+
+      const rect = container.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Current mouse coordinate relative to scroll container coordinates
+      const contentX = container.scrollLeft + mouseX;
+      const contentY = container.scrollTop + mouseY;
+
+      setZoom(prevZoom => {
+        const delta = -e.deltaY;
+        // High-precision smooth multiplier scaling for both mice and trackpads
+        const factor = 1 + Math.min(Math.max(Math.abs(delta) / 1200, 0.015), 0.08);
+        let nextZoom = delta > 0 ? prevZoom * factor : prevZoom / factor;
+
+        // Constraint scaling boundaries: 30% to 300% zoom limit
+        nextZoom = Math.min(Math.max(nextZoom, 0.3), 3.0);
+        nextZoom = parseFloat(nextZoom.toFixed(2));
+
+        if (nextZoom !== prevZoom) {
+          const ratio = nextZoom / prevZoom;
+          requestAnimationFrame(() => {
+            // Keep the exact same point under the cursor stable during zooming
+            container.scrollLeft = contentX * ratio - mouseX;
+            container.scrollTop = contentY * ratio - mouseY;
+          });
+        }
+        return nextZoom;
+      });
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   // Handle segment hovering in Cut mode
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (isPanning) {
+      if (containerRef.current) {
+        const dx = e.clientX - panStart.x;
+        const dy = e.clientY - panStart.y;
+        containerRef.current.scrollLeft = panScrollStart.left - dx;
+        containerRef.current.scrollTop = panScrollStart.top - dy;
+      }
+      return;
+    }
+
     const mousePos = getSVGCoords(e);
 
     // 1. DRAGGING NODE ACTION
@@ -219,6 +318,25 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    const isMiddleButton = e.button === 1;
+    const isLeftButton = e.button === 0;
+
+    // Handle spacebar + drag panning or middle-mouse-button panning
+    if (isMiddleButton || (isLeftButton && spacePressed)) {
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY });
+      if (containerRef.current) {
+        setPanScrollStart({
+          left: containerRef.current.scrollLeft,
+          top: containerRef.current.scrollTop
+        });
+      }
+      return;
+    }
+
+    if (!isLeftButton) return;
+
     const mousePos = getSVGCoords(e);
 
     // If clicking background and tool is 'add', spawn a new tube
@@ -248,6 +366,11 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
   };
 
   const handleMouseUp = () => {
+    if (isPanning) {
+      setIsPanning(false);
+      return;
+    }
+
     // Handle Snapped Weld Operation on Mouse Up
     if (tool === 'weld' && weldPreview) {
       const { sourceTubeId, sourcePointId, targetTubeId, targetPointId } = weldPreview;
@@ -361,10 +484,14 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
 
   // Start dragging an entire tube
   const handleTubeMouseDown = (e: React.MouseEvent<SVGElement>, tube: Tube) => {
+    if (e.button === 1) {
+      // Allow middle click propagation so canvas panning intercepts it!
+      return;
+    }
     e.stopPropagation();
     setSelectedTubeId(tube.id);
     
-    if (tool === 'select') {
+    if (e.button === 0 && tool === 'select') {
       const mousePos = getSVGCoords(e as unknown as React.MouseEvent<SVGSVGElement>);
       setDraggingTube(tube.id);
       setDragStartPos(mousePos);
@@ -374,10 +501,14 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
 
   // Node actions (dragging or right-clicking to delete)
   const handleNodeMouseDown = (e: React.MouseEvent<SVGCircleElement>, tubeId: string, pointId: string) => {
+    if (e.button === 1) {
+      // Allow middle click propagation so canvas panning intercepts it!
+      return;
+    }
     e.stopPropagation();
     setSelectedTubeId(tubeId);
     
-    if (tool === 'select' || tool === 'bend' || tool === 'weld') {
+    if (e.button === 0 && (tool === 'select' || tool === 'bend' || tool === 'weld')) {
       setDraggingNode({ tubeId, pointId });
     }
   };
@@ -649,25 +780,28 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
   };
 
   return (
-    <div className="canvas-container" style={{
+    <div ref={containerRef} className="canvas-container" style={{
       flex: 1,
       height: '100%',
       backgroundColor: 'var(--bg-workbench)',
       position: 'relative',
       overflow: 'auto',
-      padding: '80px'
+      padding: '80px',
+      cursor: isPanning ? 'grabbing' : (spacePressed ? 'grab' : (tool === 'cut' ? 'crosshair' : 'default'))
     }}>
       <svg
         ref={svgRef}
-        width={totalWidth + 160}
-        height={totalHeight + 120}
+        width={(totalWidth + 160) * zoom}
+        height={(totalHeight + 120) * zoom}
+        viewBox={`0 0 ${totalWidth + 160} ${totalHeight + 120}`}
         style={{
           display: 'block',
           margin: 'auto',
           backgroundColor: 'var(--bg-workbench)',
           backgroundImage: 'radial-gradient(var(--border-glass) 1px, transparent 0)',
           backgroundSize: '24px 24px',
-          boxShadow: 'inset 0 0 80px rgba(0,0,0,0.5)'
+          boxShadow: 'inset 0 0 80px rgba(0,0,0,0.5)',
+          transition: 'width 0.1s ease, height 0.1s ease'
         }}
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
@@ -683,7 +817,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           
           {/* Renders the neon/glass tubes */}
           {renderTubes()}
-
+ 
           {/* Snapping weld preview indicator */}
           {tool === 'weld' && weldPreview && (
             <g transform={`translate(${weldPreview.weldPos.x}, ${weldPreview.weldPos.y})`}>
@@ -699,7 +833,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           )}
         </g>
       </svg>
-
+ 
       {/* Floating Instructions/Status Badge */}
       <div style={{
         position: 'absolute',
@@ -714,7 +848,8 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
         flexDirection: 'column',
         gap: '4px',
         pointerEvents: 'none',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+        zIndex: 20
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{
@@ -735,8 +870,11 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           {tool === 'weld' && '🟢 Drag endpoints together to snap & weld separate tubes.'}
           {tool === 'add' && '➕ Click on sheets to spawn a new 4ft horizontal tube.'}
         </span>
+        <span style={{ fontSize: '11px', color: 'var(--accent-blue)', marginTop: '4px', borderTop: '1px solid var(--border-glass)', paddingTop: '4px' }}>
+          💡 Scroll wheel zooms. Hold Space + Drag or press Middle Mouse button to pan.
+        </span>
       </div>
-
+ 
       {/* Scale Ruler (Bottom-Left Corner) */}
       <div style={{
         position: 'absolute',
@@ -752,7 +890,8 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
         color: 'var(--text-secondary)',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px'
+        gap: '8px',
+        zIndex: 20
       }}>
         <span>SCALE:</span>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -761,6 +900,101 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           </div>
           <span style={{ fontSize: '9px', marginTop: '2px' }}>3.0 feet (120px)</span>
         </div>
+      </div>
+ 
+      {/* Floating Zoom Controls Widget (Bottom-Right Corner) */}
+      <div style={{
+        position: 'absolute',
+        bottom: '20px',
+        right: '20px',
+        background: 'var(--bg-sidebar)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid var(--border-glass)',
+        padding: '6px 10px',
+        borderRadius: '6px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+        zIndex: 20
+      }}>
+        <button
+          onClick={() => setZoom(prev => Math.max(prev - 0.1, 0.3))}
+          title="Zoom Out (Scroll Down)"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border-glass)',
+            color: 'var(--text-primary)',
+            width: '28px',
+            height: '28px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s ease',
+            outline: 'none'
+          }}
+        >
+          ➖
+        </button>
+        <span style={{
+          fontSize: '11px',
+          fontFamily: 'var(--mono)',
+          color: 'var(--text-primary)',
+          fontWeight: 'bold',
+          minWidth: '40px',
+          textAlign: 'center'
+        }}>
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          onClick={() => setZoom(prev => Math.min(prev + 0.1, 3.0))}
+          title="Zoom In (Scroll Up)"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border-glass)',
+            color: 'var(--text-primary)',
+            width: '28px',
+            height: '28px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s ease',
+            outline: 'none'
+          }}
+        >
+          ➕
+        </button>
+        <button
+          onClick={() => setZoom(1.0)}
+          title="Reset to 100%"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border-glass)',
+            color: 'var(--text-secondary)',
+            padding: '0 8px',
+            height: '28px',
+            borderRadius: '4px',
+            fontSize: '9.5px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s ease',
+            textTransform: 'uppercase',
+            outline: 'none'
+          }}
+        >
+          Reset
+        </button>
       </div>
     </div>
   );
