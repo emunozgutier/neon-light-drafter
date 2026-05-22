@@ -1,7 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import type { Point, Tube } from '../utils/geometry';
-import { SCALE, calculateTubeGeometry, findNearestPointOnPath, dist, generateId, formatLength, bezierTangent } from '../utils/geometry';
+import { SCALE, findNearestPointOnPath, dist, generateId, bezierTangent } from '../utils/geometry';
 import { SheetGrid } from './SheetGrid';
+import { Line } from './Canvas/Line';
+import { Point as PointComponent } from './Canvas/Point';
+import { RefImage } from './RefImage';
 
 interface NeonCanvasProps {
   tubes: Tube[];
@@ -941,315 +944,70 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
     }
   };
 
+  const handleLineSegmentDoubleClick = (e: React.MouseEvent<SVGPathElement>, tube: Tube) => {
+    if (svgRef.current) {
+      const mousePos = getSVGCoords(e as unknown as React.MouseEvent<SVGSVGElement>);
+      const proj = findNearestPointOnPath(mousePos, tube.points, 40);
+      if (proj) {
+        handleSegmentDoubleClick(e, tube.id, proj.segmentIndex);
+      }
+    }
+  };
+
+  const handleDeleteNode = (tubeId: string, pointId: string) => {
+    setTubes(prev =>
+      prev.map(t => {
+        if (t.id !== tubeId) return t;
+        return {
+          ...t,
+          points: t.points.filter(p => p.id !== pointId)
+        };
+      })
+    );
+  };
+
   // Render glowing tubes
   const renderTubes = () => {
     return tubes.map(tube => {
       const isSelected = tube.id === selectedTubeId;
-      const { pathData, physicalLengthInches } = calculateTubeGeometry(tube.points, bendRadius);
-      const isOverLength = physicalLengthInches > tube.maxLengthInches;
-      
-      // Responsive stroke diameters based on commercial sizes (8mm, 10mm, 12mm, 15mm)
-      // Visual scale: 10mm = 8px stroke
-      const strokeWidth = (tube.diameter / 10) * 8;
 
       return (
         <g key={tube.id} className={`glass-tube ${isSelected ? 'selected' : ''}`}>
           
-          {/* 1. Interactive wider invisible backing line for easy clicks */}
-          <path
-            d={pathData}
-            fill="none"
-            stroke="transparent"
-            strokeWidth="24"
-            cursor={tool === 'cut' ? 'crosshair' : 'pointer'}
-            onMouseDown={(e) => handleTubeMouseDown(e, tube)}
-            onDoubleClick={(e) => {
-              // Double click to add a node on the segment
-              // We need to calculate which segment was clicked
-              if (svgRef.current) {
-                const mousePos = getSVGCoords(e as unknown as React.MouseEvent<SVGSVGElement>);
-                const proj = findNearestPointOnPath(mousePos, tube.points, 40);
-                if (proj) {
-                  handleSegmentDoubleClick(e, tube.id, proj.segmentIndex);
-                }
-              }
-            }}
+          <Line
+            tube={tube}
+            isSelected={isSelected}
+            isPowerOn={isPowerOn}
+            tool={tool}
+            bendRadius={bendRadius}
+            useMetric={useMetric}
+            hoveredSegment={hoveredSegment}
+            onTubeMouseDown={handleTubeMouseDown}
+            onSegmentDoubleClick={handleLineSegmentDoubleClick}
+            onSegmentClick={handleSegmentClick}
           />
-
-          {/* 2. Ambient background glow reflections (neon power only) */}
-          {isPowerOn && (
-            <path
-              d={pathData}
-              fill="none"
-              stroke={tube.color}
-              strokeWidth={strokeWidth * 4.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity="0.08"
-              style={{ filter: 'blur(16px)', pointerEvents: 'none' }}
-            />
-          )}
-
-          {/* 3. Outer Neon Glow overlay */}
-          {isPowerOn && (
-            <path
-              d={pathData}
-              fill="none"
-              stroke={tube.color}
-              strokeWidth={strokeWidth * 2.2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity="0.55"
-              className="glowing"
-              style={{
-                color: tube.color,
-                filter: `drop-shadow(0 0 ${strokeWidth * 0.4}px ${tube.color})`,
-                pointerEvents: 'none'
-              }}
-            />
-          )}
-
-          {/* 4. Main Glass Tube Shell */}
-          <path
-            d={pathData}
-            fill="none"
-            stroke={isPowerOn ? tube.color : '#475569'}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={isPowerOn ? 0.9 : 0.65}
-            style={{
-              transition: 'stroke 0.3s ease, opacity 0.3s ease',
-              pointerEvents: 'none'
-            }}
-          />
-
-          {/* 5. Glowing core gas inside tube (neon power only) */}
-          {isPowerOn && (
-            <path
-              d={pathData}
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth={strokeWidth * 0.3}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity="0.95"
-              style={{ pointerEvents: 'none' }}
-            />
-          )}
-
-          {/* 6. Physical boundary warning glow (Turns orange/red if length exceeds limits) */}
-          {isOverLength && (
-            <path
-              d={pathData}
-              fill="none"
-              stroke="#ef4444"
-              strokeWidth={strokeWidth * 1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray="8 6"
-              opacity="0.6"
-              style={{ pointerEvents: 'none' }}
-            />
-          )}
-
-          {/* 7. Hover Cut Indicator Overlay */}
-          {tool === 'cut' && hoveredSegment && hoveredSegment.tubeId === tube.id && (
-            <g>
-              <line
-                x1={hoveredSegment.point.x}
-                y1={hoveredSegment.point.y - 12}
-                x2={hoveredSegment.point.x}
-                y2={hoveredSegment.point.y + 12}
-                stroke="#f43f5e"
-                strokeWidth="2.5"
-                strokeDasharray="3 2"
-              />
-              <circle
-                cx={hoveredSegment.point.x}
-                cy={hoveredSegment.point.y}
-                r="18"
-                fill="transparent"
-                stroke="#f43f5e"
-                strokeWidth="1.5"
-                strokeDasharray="4 2"
-                style={{ cursor: 'cell', animation: 'grid-pulse 1s infinite' }}
-                onClick={(e) => handleSegmentClick(e, tube.id, hoveredSegment.segmentIndex, hoveredSegment.point)}
-              />
-            </g>
-          )}
-
-          {/* 8. Length Indicator Tag (Floating Badge) */}
-          {isSelected && tube.points.length >= 2 && (
-            <g transform={`translate(${tube.points[0].x}, ${tube.points[0].y - 20})`}>
-              <rect
-                x="-40"
-                y="-18"
-                width="80"
-                height="22"
-                rx="4"
-                fill="#1e293b"
-                stroke={isOverLength ? '#ef4444' : '#6b7280'}
-                strokeWidth="1"
-                opacity="0.9"
-              />
-              <text
-                x="0"
-                y="-3"
-                textAnchor="middle"
-                fill={isOverLength ? '#f87171' : '#f8fafc'}
-                fontSize="9.5"
-                fontWeight="600"
-                fontFamily="var(--mono)"
-              >
-                {formatLength(physicalLengthInches, useMetric)}
-              </text>
-            </g>
-          )}
 
           {/* 9. Control Nodes & Handles (Photoshop-style anchors and control handles) */}
           {isSelected && tube.points.map((pt, index) => {
-            const isNodeHovered = draggingNode?.pointId === pt.id;
             const isEnd = index === 0 || index === tube.points.length - 1;
-
-            const hasHandleIn = pt.handleIn && (pt.handleIn.dx !== 0 || pt.handleIn.dy !== 0);
-            const hasHandleOut = pt.handleOut && (pt.handleOut.dx !== 0 || pt.handleOut.dy !== 0);
-
-            const inX = pt.x + (pt.handleIn?.dx ?? 0);
-            const inY = pt.y + (pt.handleIn?.dy ?? 0);
-            const outX = pt.x + (pt.handleOut?.dx ?? 0);
-            const outY = pt.y + (pt.handleOut?.dy ?? 0);
 
             return (
               <g key={pt.id}>
-                {/* Handle connector lines */}
-                {hasHandleIn && index > 0 && (
-                  <line
-                    x1={pt.x}
-                    y1={pt.y}
-                    x2={inX}
-                    y2={inY}
-                    stroke="rgba(192, 132, 252, 0.75)"
-                    strokeWidth="1.5"
-                    strokeDasharray="2 2"
-                    style={{ pointerEvents: 'none' }}
-                  />
-                )}
-                {hasHandleOut && index < tube.points.length - 1 && (
-                  <line
-                    x1={pt.x}
-                    y1={pt.y}
-                    x2={outX}
-                    y2={outY}
-                    stroke="rgba(192, 132, 252, 0.75)"
-                    strokeWidth="1.5"
-                    strokeDasharray="2 2"
-                    style={{ pointerEvents: 'none' }}
-                  />
-                )}
-
-                {/* Handle incoming control knob */}
-                {hasHandleIn && index > 0 && (
-                  <circle
-                    cx={inX}
-                    cy={inY}
-                    r="4.5"
-                    fill="#c084fc"
-                    stroke="#ffffff"
-                    strokeWidth="1.5"
-                    cursor="pointer"
-                    style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      setDraggingHandle({ tubeId: tube.id, pointId: pt.id, handleType: 'in' });
-                    }}
-                  />
-                )}
-
-                {/* Handle outgoing control knob */}
-                {hasHandleOut && index < tube.points.length - 1 && (
-                  <circle
-                    cx={outX}
-                    cy={outY}
-                    r="4.5"
-                    fill="#c084fc"
-                    stroke="#ffffff"
-                    strokeWidth="1.5"
-                    cursor="pointer"
-                    style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      setDraggingHandle({ tubeId: tube.id, pointId: pt.id, handleType: 'out' });
-                    }}
-                  />
-                )}
-
-                {/* Main Anchor Point Knob */}
-                <circle
-                  cx={pt.x}
-                  cy={pt.y}
-                  r={isEnd ? (isNodeHovered ? 8.5 : 6.5) : (isNodeHovered ? 7.5 : 5.5)}
-                  fill={isEnd ? '#10b981' : '#38bdf8'}
-                  stroke="#ffffff"
-                  strokeWidth="1.5"
-                  cursor="move"
-                  style={{ transition: 'r 0.1s ease', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
-                  onMouseDown={(e) => handleNodeMouseDown(e, tube.id, pt.id)}
-                  onContextMenu={(e) => handleNodeContextMenu(e, tube.id, pt.id)}
+                <PointComponent
+                  tubeId={tube.id}
+                  pt={pt}
+                  index={index}
+                  totalPoints={tube.points.length}
+                  draggingNode={draggingNode}
+                  onNodeMouseDown={handleNodeMouseDown}
+                  onNodeContextMenu={handleNodeContextMenu}
+                  onHandleMouseDown={(e, tId, pId, type) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setDraggingHandle({ tubeId: tId, pointId: pId, handleType: type });
+                  }}
+                  onDeleteNode={handleDeleteNode}
                 />
-
-                {/* Delete Node Button (Cross X) - Rendered only when tube has more than 2 points */}
-                {tube.points.length > 2 && (
-                  <g
-                    className="delete-node-btn"
-                    cursor="pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      setTubes(prev =>
-                        prev.map(t => {
-                          if (t.id !== tube.id) return t;
-                          return {
-                            ...t,
-                            points: t.points.filter(p => p.id !== pt.id)
-                          };
-                        })
-                      );
-                    }}
-                  >
-                    {/* Small circular backing */}
-                    <circle
-                      cx={pt.x + 11}
-                      cy={pt.y - 11}
-                      r="7.5"
-                      fill="#ef4444"
-                      stroke="#ffffff"
-                      strokeWidth="1.2"
-                      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}
-                    />
-                    {/* Cross X shapes */}
-                    <line
-                      x1={pt.x + 8.5}
-                      y1={pt.y - 13.5}
-                      x2={pt.x + 13.5}
-                      y2={pt.y - 8.5}
-                      stroke="#ffffff"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                    <line
-                      x1={pt.x + 13.5}
-                      y1={pt.y - 13.5}
-                      x2={pt.x + 8.5}
-                      y2={pt.y - 8.5}
-                      stroke="#ffffff"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </g>
-                )}
 
                 {/* Drag Entire Tube Button (Tactile Grip Handle) - Rendered only at Endpoints (Start and End nodes) */}
                 {isEnd && (
@@ -1351,95 +1109,17 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           
           {/* Reference Blueprint overlay image tracing guide */}
           {refImageSrc && (
-            <g>
-              <image
-                href={refImageSrc}
-                x={refImageX}
-                y={refImageY}
-                width={1000 * refImageScale}
-                height={1000 * refImageScale * refImageAspectRatio}
-                opacity={refImageOpacity}
-                style={{
-                  pointerEvents: isRefImageLocked ? 'none' : 'auto',
-                  cursor: isRefImageLocked ? 'default' : 'move'
-                }}
-                onMouseDown={handleImageMouseDown}
-              />
-              {!isRefImageLocked && (
-                <>
-                  <g style={{ pointerEvents: 'none' }}>
-                    {/* Subtle pulsing background outline */}
-                    <rect
-                      x={refImageX}
-                      y={refImageY}
-                      width={1000 * refImageScale}
-                      height={1000 * refImageScale * refImageAspectRatio}
-                      fill="rgba(192, 132, 252, 0.03)"
-                      stroke="var(--accent-purple)"
-                      strokeWidth="2"
-                      strokeDasharray="6 4"
-                      style={{
-                        animation: 'image-border-glow 2s infinite ease-in-out'
-                      }}
-                    />
-                    
-                    {/* Helper Badge to guide the user */}
-                    <g transform={`translate(${refImageX + 12}, ${refImageY + 28})`}>
-                      <rect
-                        width="180"
-                        height="26"
-                        rx="4"
-                        fill="var(--bg-sidebar)"
-                        stroke="var(--accent-purple)"
-                        strokeWidth="1"
-                        opacity="0.9"
-                      />
-                      <text
-                        x="90"
-                        y="16.5"
-                        textAnchor="middle"
-                        fill="#ffffff"
-                        fontSize="11"
-                        fontWeight="600"
-                      >
-                        🖐️ Drag Image to Reposition
-                      </text>
-                    </g>
-                  </g>
-
-                  {/* Floating Lock Button on Canvas (Interactive!) */}
-                  <g 
-                    className="canvas-lock-btn"
-                    transform={`translate(${refImageX + 1000 * refImageScale - 36}, ${refImageY + 12})`}
-                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      setIsRefImageLocked(true);
-                    }}
-                  >
-                    <title>Lock Tracing Guide</title>
-                    <circle
-                      cx="14"
-                      cy="14"
-                      r="16"
-                      fill="var(--bg-sidebar)"
-                      stroke="var(--accent-purple)"
-                      strokeWidth="1.5"
-                      style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))' }}
-                    />
-                    <text
-                      x="14"
-                      y="19"
-                      textAnchor="middle"
-                      fontSize="14"
-                    >
-                      🔒
-                    </text>
-                  </g>
-                </>
-              )}
-            </g>
+            <RefImage
+              refImageSrc={refImageSrc}
+              refImageX={refImageX}
+              refImageY={refImageY}
+              refImageScale={refImageScale}
+              refImageAspectRatio={refImageAspectRatio}
+              refImageOpacity={refImageOpacity}
+              isRefImageLocked={isRefImageLocked}
+              setIsRefImageLocked={setIsRefImageLocked}
+              onMouseDown={handleImageMouseDown}
+            />
           )}
           
           {/* Ghost point node projection */}
