@@ -100,6 +100,43 @@ function App() {
     }
   }, [tubes, widthPx, heightPx]);
 
+  // Find which grid sheets the drawing occupies
+  const getPrintPages = () => {
+    if (tubes.length === 0) {
+      return [{ row: 0, col: 0 }];
+    }
+
+    let minCol = 5;
+    let maxCol = 0;
+    let minRow = 4;
+    let maxRow = 0;
+    let hasPoints = false;
+
+    tubes.forEach(t => {
+      t.points.forEach(p => {
+        const col = Math.floor(p.x / widthPx);
+        const row = Math.floor(p.y / heightPx);
+        minCol = Math.min(minCol, Math.max(0, Math.min(5, col)));
+        maxCol = Math.max(maxCol, Math.max(0, Math.min(5, col)));
+        minRow = Math.min(minRow, Math.max(0, Math.min(4, row)));
+        maxRow = Math.max(maxRow, Math.max(0, Math.min(4, row)));
+        hasPoints = true;
+      });
+    });
+
+    if (!hasPoints) {
+      return [{ row: 0, col: 0 }];
+    }
+
+    const pages = [];
+    for (let r = minRow; r <= maxRow; r++) {
+      for (let c = minCol; c <= maxCol; c++) {
+        pages.push({ row: r, col: c });
+      }
+    }
+    return pages;
+  };
+
   return (
     <>
       <div className="app-container">
@@ -112,146 +149,185 @@ function App() {
 
       {/* 1:1 Scale Print Output Node (Hidden by default, shown strictly inside @media print) */}
       <div className="print-only-container">
-        <svg
-          width="100%"
-          height="100%"
-          viewBox={`0 0 ${widthPx} ${heightPx}`}
-          style={{ display: 'block', background: 'transparent' }}
-        >
-          {/* Tubes outlines (Rotatable group) */}
-          <g transform={`rotate(${printRotation}, ${widthPx / 2}, ${heightPx / 2})`}>
-            {refImageSrc && (
-              <image
-                href={refImageSrc}
-                x={refImageX}
-                y={refImageY}
-                width={1000 * refImageScaleX}
-                height={1000 * refImageScaleY * refImageAspectRatio}
-                opacity={refImageOpacity}
-                style={{ pointerEvents: 'none' }}
-              />
-            )}
-            {tubes.map((t) => {
-              const { pathData } = calculateTubeGeometry(t.points, bendRadius);
-              const strokeWidth = (t.diameter / 10) * 8;
+        {getPrintPages().map(({ row, col }, index, arr) => {
+          const pageLetter = String.fromCharCode(65 + row);
+          const pageNumber = col + 1;
+          const pageLabel = `PAGE ${pageLetter}-${pageNumber}`;
 
-              return (
-                <g key={t.id}>
-                  {/* 1. Bending Template rendering (Thick solid black line with centerline guide) */}
-                  <g className="print-bending-path">
-                    <path
-                      d={pathData}
-                      fill="none"
-                      stroke="#000000"
-                      strokeWidth={strokeWidth}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d={pathData}
-                      fill="none"
-                      stroke="#8b5cf6"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeDasharray="2 3"
-                      opacity="0.85"
-                    />
-                    {/* Anchor points circles to assist bending start/stops */}
-                    {t.points.map((p, idx) => (
-                      <circle
-                        key={p.id}
-                        cx={p.x}
-                        cy={p.y}
-                        r="3.5"
-                        fill={idx === 0 || idx === t.points.length - 1 ? '#ef4444' : '#3b82f6'}
-                        stroke="#ffffff"
-                        strokeWidth="1"
-                      />
-                    ))}
-                  </g>
+          return (
+            <div
+              key={`${row}-${col}`}
+              className="print-page-wrapper"
+              style={{
+                width: '100%',
+                height: '100%',
+                pageBreakAfter: index === arr.length - 1 ? 'avoid' : 'always',
+                position: 'relative',
+                boxSizing: 'border-box'
+              }}
+            >
+              {/* Elegant watermark in print margin */}
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                left: '12px',
+                fontSize: '8px',
+                fontFamily: 'var(--mono)',
+                color: '#6b7280',
+                opacity: 0.8,
+                zIndex: 10
+              }}>
+                NEON LIGHT DRAFTER | {pageLabel} | SHEET {index + 1} OF {arr.length}
+              </div>
 
-                  {/* 2. Neon Showcase rendering (Vibrant ambient neon glow mockup) */}
-                  <g className="print-showcase-path">
-                    {/* Ambient neon backglow reflection */}
-                    <path
-                      d={pathData}
-                      fill="none"
-                      stroke={t.color}
-                      strokeWidth={strokeWidth * 3.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity="0.15"
+              <svg
+                width="100%"
+                height="100%"
+                viewBox={`0 0 ${widthPx} ${heightPx}`}
+                style={{ display: 'block', background: 'transparent' }}
+              >
+                {/* Tubes outlines (Rotatable and shiftable group) */}
+                <g 
+                  transform={`
+                    rotate(${printRotation}, ${widthPx / 2}, ${heightPx / 2})
+                    translate(${-col * widthPx}, ${-row * heightPx})
+                  `}
+                >
+                  {refImageSrc && (
+                    <image
+                      href={refImageSrc}
+                      x={refImageX}
+                      y={refImageY}
+                      width={1000 * refImageScaleX}
+                      height={1000 * refImageScaleY * refImageAspectRatio}
+                      opacity={refImageOpacity}
+                      style={{ pointerEvents: 'none' }}
                     />
-                    {/* Main outer glow overlay */}
-                    <path
-                      d={pathData}
-                      fill="none"
-                      stroke={t.color}
-                      strokeWidth={strokeWidth * 1.8}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity="0.6"
-                    />
-                    {/* Outer neon curve path shell */}
-                    <path
-                      d={pathData}
-                      fill="none"
-                      stroke={t.color}
-                      strokeWidth={strokeWidth}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity="0.9"
-                    />
-                    {/* High illumination white gas core filament */}
-                    <path
-                      d={pathData}
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth={strokeWidth * 0.25}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity="0.98"
-                    />
-                  </g>
+                  )}
+                  {tubes.map((t) => {
+                    const { pathData } = calculateTubeGeometry(t.points, bendRadius);
+                    const strokeWidth = (t.diameter / 10) * 8;
+
+                    return (
+                      <g key={t.id}>
+                        {/* 1. Bending Template rendering (Thick solid black line with centerline guide) */}
+                        <g className="print-bending-path">
+                          <path
+                            d={pathData}
+                            fill="none"
+                            stroke="#000000"
+                            strokeWidth={strokeWidth}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d={pathData}
+                            fill="none"
+                            stroke="#8b5cf6"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeDasharray="2 3"
+                            opacity="0.85"
+                          />
+                          {/* Anchor points circles to assist bending start/stops */}
+                          {t.points.map((p, idx) => (
+                            <circle
+                              key={p.id}
+                              cx={p.x}
+                              cy={p.y}
+                              r="3.5"
+                              fill={idx === 0 || idx === t.points.length - 1 ? '#ef4444' : '#3b82f6'}
+                              stroke="#ffffff"
+                              strokeWidth="1"
+                            />
+                          ))}
+                        </g>
+
+                        {/* 2. Neon Showcase rendering (Vibrant ambient neon glow mockup) */}
+                        <g className="print-showcase-path">
+                          {/* Ambient neon backglow reflection */}
+                          <path
+                            d={pathData}
+                            fill="none"
+                            stroke={t.color}
+                            strokeWidth={strokeWidth * 3.5}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity="0.15"
+                          />
+                          {/* Main outer glow overlay */}
+                          <path
+                            d={pathData}
+                            fill="none"
+                            stroke={t.color}
+                            strokeWidth={strokeWidth * 1.8}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity="0.6"
+                          />
+                          {/* Outer neon curve path shell */}
+                          <path
+                            d={pathData}
+                            fill="none"
+                            stroke={t.color}
+                            strokeWidth={strokeWidth}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity="0.9"
+                          />
+                          {/* High illumination white gas core filament */}
+                          <path
+                            d={pathData}
+                            fill="none"
+                            stroke="#ffffff"
+                            strokeWidth={strokeWidth * 0.25}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity="0.98"
+                          />
+                        </g>
+                      </g>
+                    );
+                  })}
                 </g>
-              );
-            })}
-          </g>
 
-          {/* 1:1 Scale CAD Calibration Box (CAD standard block for physical scaling check) */}
-          <g transform={`translate(${widthPx - 60}, ${heightPx - 60})`}>
-            <rect
-              width="40"
-              height="40"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            />
-            <line x1="20" y1="0" x2="20" y2="40" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1" opacity="0.3" />
-            <line x1="0" y1="20" x2="40" y2="20" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1" opacity="0.3" />
-            <text
-              x="20"
-              y="18"
-              textAnchor="middle"
-              fill="currentColor"
-              fontSize="6.5"
-              fontWeight="bold"
-            >
-              1 INCH
-            </text>
-            <text
-              x="20"
-              y="28"
-              textAnchor="middle"
-              fill="currentColor"
-              fontSize="5"
-              fontWeight="600"
-            >
-              CALIBRATION
-            </text>
-          </g>
-        </svg>
+                {/* 1:1 Scale CAD Calibration Box (CAD standard block for physical scaling check) */}
+                <g transform={`translate(${widthPx - 60}, ${heightPx - 60})`}>
+                  <rect
+                    width="40"
+                    height="40"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <line x1="20" y1="0" x2="20" y2="40" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1" opacity="0.3" />
+                  <line x1="0" y1="20" x2="40" y2="20" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1" opacity="0.3" />
+                  <text
+                    x="20"
+                    y="18"
+                    textAnchor="middle"
+                    fill="currentColor"
+                    fontSize="6.5"
+                    fontWeight="bold"
+                  >
+                    1 INCH
+                  </text>
+                  <text
+                    x="20"
+                    y="28"
+                    textAnchor="middle"
+                    fill="currentColor"
+                    fontSize="5"
+                    fontWeight="600"
+                  >
+                    CALIBRATION
+                  </text>
+                </g>
+              </svg>
+            </div>
+          );
+        })}
       </div>
 
       {/* Interactive print shop centering modal */}
