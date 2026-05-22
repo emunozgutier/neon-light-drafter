@@ -98,7 +98,7 @@ function App() {
       useSideMenu.getState().setRefImageX(Math.round(currentX + dx));
       useSideMenu.getState().setRefImageY(Math.round(currentY + dy));
     }
-  }, []);
+  }, [tubes, widthPx, heightPx]);
 
   return (
     <>

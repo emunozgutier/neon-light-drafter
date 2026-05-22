@@ -345,49 +345,7 @@ export const NeonCanvas: React.FC = () => {
     }
   };
 
-  // Zoom button triggers centered on the screen viewport center
-  const handleZoomIncrement = (factor: number) => {
-    const container = containerRef.current;
-    if (!container) return;
 
-    const rect = container.getBoundingClientRect();
-    const mouseX = rect.width / 2;
-    const mouseY = rect.height / 2;
-
-    const contentX = container.scrollLeft + mouseX;
-    const contentY = container.scrollTop + mouseY;
-
-    const unscaledX = contentX / currentZoomRef.current;
-    const unscaledY = contentY / currentZoomRef.current;
-
-    zoomFocalPointRef.current = { mouseX, mouseY, unscaledX, unscaledY };
-
-    let nextZoom = currentZoomRef.current * factor;
-    nextZoom = Math.min(Math.max(nextZoom, 0.3), 3.0);
-    nextZoom = parseFloat(nextZoom.toFixed(2));
-
-    targetZoomRef.current = nextZoom;
-    triggerZoomAnimation();
-  };
-
-  const handleZoomReset = () => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const mouseX = rect.width / 2;
-    const mouseY = rect.height / 2;
-
-    const contentX = container.scrollLeft + mouseX;
-    const contentY = container.scrollTop + mouseY;
-
-    const unscaledX = contentX / currentZoomRef.current;
-    const unscaledY = contentY / currentZoomRef.current;
-
-    zoomFocalPointRef.current = { mouseX, mouseY, unscaledX, unscaledY };
-    targetZoomRef.current = 1.0;
-    triggerZoomAnimation();
-  };
 
   // Imperative non-passive wheel event handler for zooming with mouse wheel (direct smooth scrolling!)
   useEffect(() => {
@@ -1476,100 +1434,7 @@ export const NeonCanvas: React.FC = () => {
         </div>
       </div>
  
-      {/* Floating Zoom Controls Widget (Bottom-Right Corner) */}
-      <div style={{
-        position: 'absolute',
-        bottom: '20px',
-        right: '20px',
-        background: 'var(--bg-sidebar)',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid var(--border-glass)',
-        padding: '6px 10px',
-        borderRadius: '6px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-        zIndex: 20
-      }}>
-        <button
-          onClick={() => handleZoomIncrement(0.9)}
-          title="Zoom Out (Scroll Down)"
-          style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--border-glass)',
-            color: 'var(--text-primary)',
-            width: '28px',
-            height: '28px',
-            borderRadius: '4px',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s ease',
-            outline: 'none'
-          }}
-        >
-          ➖
-        </button>
-        <span style={{
-          fontSize: '11px',
-          fontFamily: 'var(--mono)',
-          color: 'var(--text-primary)',
-          fontWeight: 'bold',
-          minWidth: '40px',
-          textAlign: 'center'
-        }}>
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          onClick={() => handleZoomIncrement(1.1)}
-          title="Zoom In (Scroll Up)"
-          style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--border-glass)',
-            color: 'var(--text-primary)',
-            width: '28px',
-            height: '28px',
-            borderRadius: '4px',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s ease',
-            outline: 'none'
-          }}
-        >
-          ➕
-        </button>
-        <button
-          onClick={() => handleZoomReset()}
-          title="Reset to 100%"
-          style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--border-glass)',
-            color: 'var(--text-secondary)',
-            padding: '0 8px',
-            height: '28px',
-            borderRadius: '4px',
-            fontSize: '9.5px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s ease',
-            textTransform: 'uppercase',
-            outline: 'none'
-          }}
-        >
-          Reset
-        </button>
-      </div>
+
 
       {/* Overlapping points keyboard selection instruction badge */}
       {nearbyPoints.length > 1 && (

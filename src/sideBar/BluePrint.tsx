@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useSideMenu } from '../store/useSideMenu';
+import { useCanvas } from '../store/useCanvas';
 
 export const BluePrint: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const {
+    sheetType,
+    orientation,
     refImageSrc,
     refImageOpacity,
     refImageScaleX,
@@ -98,9 +101,61 @@ export const BluePrint: React.FC = () => {
                         // Calculate and store aspect ratio
                         const img = new Image();
                         img.onload = () => {
+                          let ratio = 1.0;
                           if (img.width > 0) {
-                            setRefImageAspectRatio(img.height / img.width);
+                            ratio = img.height / img.width;
+                            setRefImageAspectRatio(ratio);
                           }
+
+                          // Dynamically center the template image under the existing drawing curves,
+                          // or fallback to the exact geometric center of Page A-1 if drawing is clear.
+                          const tubes = useCanvas.getState().tubes;
+                          let cx = 0;
+                          let cy = 0;
+                          let hasPoints = false;
+
+                          if (tubes && tubes.length > 0) {
+                            let minX = Infinity;
+                            let maxX = -Infinity;
+                            let minY = Infinity;
+                            let maxY = -Infinity;
+
+                            tubes.forEach((t) => {
+                              t.points.forEach((p) => {
+                                if (p.x < minX) minX = p.x;
+                                if (p.x > maxX) maxX = p.x;
+                                if (p.y < minY) minY = p.y;
+                                if (p.y > maxY) maxY = p.y;
+                                hasPoints = true;
+                              });
+                            });
+
+                            if (hasPoints) {
+                              cx = (minX + maxX) / 2;
+                              cy = (minY + maxY) / 2;
+                            }
+                          }
+
+                          if (!hasPoints) {
+                            // Target center of Page A-1 if drawing canvas is empty.
+                            // Page A-1 width and height in px:
+                            const dimsInches = {
+                              letter: { portrait: { w: 8.5, h: 11 }, landscape: { w: 11, h: 8.5 } },
+                              a4: { portrait: { w: 8.27, h: 11.69 }, landscape: { w: 11.69, h: 8.27 } }
+                            };
+                            const activeDim = dimsInches[sheetType][orientation];
+                            const pageW = activeDim.w * 40; // SCALE is 40
+                            const pageH = activeDim.h * 40;
+                            cx = pageW / 2;
+                            cy = pageH / 2;
+                          }
+
+                          // Standard base reference image size has a width of 1000px on canvas.
+                          const imgW = 1000;
+                          const imgH = 1000 * ratio;
+
+                          setRefImageX(Math.round(cx - imgW / 2));
+                          setRefImageY(Math.round(cy - imgH / 2));
                         };
                         img.src = src;
                         
