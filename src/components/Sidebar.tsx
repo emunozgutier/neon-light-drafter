@@ -34,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
     refImageX,
     refImageY,
     isRefImageLocked,
+    fitMargin,
     setSheetType,
     setOrientation,
     setBendRadius,
@@ -47,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
     setRefImageY,
     setIsRefImageLocked,
     setRefImageAspectRatio,
+    setFitMargin,
   } = useSideMenu();
 
   const {
@@ -94,11 +96,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
     setSelectedTubeId(null);
   };
 
-  const handleExpandTo4Feet = () => {
-    const targetLengthInches = 48; // 4 feet
-
-    if (selectedTubeId && selectedTube) {
+  const handleExpandTo4Feet = (forceTotal: boolean = false) => {
+    if (selectedTubeId && selectedTube && !forceTotal) {
       // Scale only the selected tube
+      const rawTubeSize = selectedTube.maxLengthInches !== 999
+        ? selectedTube.maxLengthInches
+        : 48;
+      const targetLengthInches = Math.max(0.1, rawTubeSize - fitMargin);
       const { physicalLengthInches } = calculateTubeGeometry(selectedTube.points, bendRadius);
       if (physicalLengthInches <= 0) return;
 
@@ -138,8 +142,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
 
       handleUpdateSelectedTube({ points: scaledPoints });
     } else {
-      // Scale all tubes globally so that total physical length becomes exactly 48"
+      // Scale all tubes globally so that total physical length becomes exactly 48" - fitMargin
       if (tubes.length === 0) return;
+
+      const targetLengthInches = Math.max(0.1, 48 - fitMargin);
 
       // 1. Calculate total current length
       let totalLength = 0;
@@ -514,9 +520,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
               </div>
             </div>
 
+            {/* Safety Margin slider / input */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px', backgroundColor: 'rgba(0,0,0,0.15)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-glass)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', alignItems: 'center' }}>
+                <span>Safety Margin / Tolerance</span>
+                <span style={{ fontFamily: 'var(--mono)', fontWeight: 'bold', color: 'var(--accent-purple)', fontSize: '12px' }}>
+                  {useMetric ? `${(fitMargin * 25.4).toFixed(0)} mm` : `${fitMargin}"`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="12"
+                step="0.5"
+                value={fitMargin}
+                onChange={(e) => setFitMargin(Number(e.target.value))}
+                style={{ width: '100%', height: '4px', borderRadius: '2px', cursor: 'pointer', accentColor: 'var(--accent-purple)', margin: '4px 0' }}
+              />
+              <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Raw Limit: {formatLength(selectedTube.maxLengthInches !== 999 ? selectedTube.maxLengthInches : 48, useMetric)}</span>
+                <span style={{ color: 'var(--accent-blue)', fontWeight: '600' }}>
+                  Final Target: {formatLength((selectedTube.maxLengthInches !== 999 ? selectedTube.maxLengthInches : 48) - fitMargin, useMetric)}
+                </span>
+              </div>
+            </div>
+
             {/* Expand to 4' Action */}
             <button
-              onClick={handleExpandTo4Feet}
+              onClick={() => handleExpandTo4Feet(false)}
               style={{
                 width: '100%',
                 height: '34px',
@@ -1095,14 +1126,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
                 padding: '8px 12px',
                 fontSize: '11px',
                 color: '#f87171',
-                lineHeight: '1.4'
+                lineHeight: '1.4',
+                marginTop: '4px'
               }}>
                 ⚠️ <strong>{overLengthCount} glass tube(s)</strong> exceed their physical raw size limit! Drag to bend or slice them using the Cut tool ✂️ to stay within boundaries.
               </div>
             )}
+
+            {/* Safety Margin slider / input */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px', backgroundColor: 'rgba(0,0,0,0.15)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-glass)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', alignItems: 'center' }}>
+                <span>Safety Margin / Tolerance</span>
+                <span style={{ fontFamily: 'var(--mono)', fontWeight: 'bold', color: 'var(--accent-purple)', fontSize: '12px' }}>
+                  {useMetric ? `${(fitMargin * 25.4).toFixed(0)} mm` : `${fitMargin}"`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="12"
+                step="0.5"
+                value={fitMargin}
+                onChange={(e) => setFitMargin(Number(e.target.value))}
+                style={{ width: '100%', height: '4px', borderRadius: '2px', cursor: 'pointer', accentColor: 'var(--accent-purple)', margin: '4px 0' }}
+              />
+              <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Raw Limit: {formatLength(48, useMetric)}</span>
+                <span style={{ color: 'var(--accent-blue)', fontWeight: '600' }}>
+                  Final Target: {formatLength(48 - fitMargin, useMetric)}
+                </span>
+              </div>
+            </div>
+
             {/* Expand to 4' Quick Action */}
             <button
-              onClick={handleExpandTo4Feet}
+              onClick={() => handleExpandTo4Feet(true)}
               style={{
                 width: '100%',
                 height: '32px',
@@ -1131,9 +1189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              {selectedTube 
-                ? "📏 Fit Selected to 4' Tube (Scale)" 
-                : "📏 Fit Total Design to 4' (Scale)"}
+              📏 Fit Total Design to 4' (Scale)
             </button>
           </div>
         ) : (

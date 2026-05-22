@@ -33,12 +33,14 @@ function App() {
   const heightPx = activeDim.h * SCALE;
 
   return (
-    <div className="app-container">
-      {/* Telemetry Panel / Controls Sidebar */}
-      <Sidebar onOpenPrint={() => setIsPrintOpen(true)} />
+    <>
+      <div className="app-container">
+        {/* Telemetry Panel / Controls Sidebar */}
+        <Sidebar onOpenPrint={() => setIsPrintOpen(true)} />
 
-      {/* Interactive Vector Editor Workspace */}
-      <NeonCanvas />
+        {/* Interactive Vector Editor Workspace */}
+        <NeonCanvas />
+      </div>
 
       {/* 1:1 Scale Print Output Node (Hidden by default, shown strictly inside @media print) */}
       <div className="print-only-container">
@@ -175,7 +177,7 @@ function App() {
 
       {/* Interactive print shop centering modal */}
       {isPrintOpen && <PrintPreviewModal onClose={() => setIsPrintOpen(false)} />}
-    </div>
+    </>
   );
 }
 
