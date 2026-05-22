@@ -906,8 +906,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           backgroundColor: 'var(--bg-workbench)',
           backgroundImage: 'radial-gradient(var(--border-glass) 1px, transparent 0)',
           backgroundSize: '24px 24px',
-          boxShadow: 'inset 0 0 80px rgba(0,0,0,0.5)',
-          transition: 'width 0.1s ease, height 0.1s ease'
+          boxShadow: 'inset 0 0 80px rgba(0,0,0,0.5)'
         }}
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
@@ -1025,7 +1024,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
         zIndex: 20
       }}>
         <button
-          onClick={() => setZoom(prev => Math.max(prev - 0.1, 0.3))}
+          onClick={() => handleZoomIncrement(0.9)}
           title="Zoom Out (Scroll Down)"
           style={{
             background: 'rgba(255,255,255,0.03)',
@@ -1057,7 +1056,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           {Math.round(zoom * 100)}%
         </span>
         <button
-          onClick={() => setZoom(prev => Math.min(prev + 0.1, 3.0))}
+          onClick={() => handleZoomIncrement(1.1)}
           title="Zoom In (Scroll Up)"
           style={{
             background: 'rgba(255,255,255,0.03)',
@@ -1079,7 +1078,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
           ➕
         </button>
         <button
-          onClick={() => setZoom(1.0)}
+          onClick={() => handleZoomReset()}
           title="Reset to 100%"
           style={{
             background: 'rgba(255,255,255,0.03)',
