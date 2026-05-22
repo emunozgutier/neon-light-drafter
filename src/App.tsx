@@ -5,11 +5,13 @@ import { useCanvas, encodeTubes } from './store/useCanvas';
 import { useSideMenu } from './store/useSideMenu';
 import { PrintPreviewModal } from './components/PrintPreviewModal';
 import { calculateTubeGeometry, SCALE } from './utils/geometry';
+import { LivePreviewWindow } from './components/LivePreviewWindow';
 import './App.css';
 
 function App() {
   const tubes = useCanvas((state) => state.tubes);
-  const { sheetType, orientation, bendRadius, printRotation } = useSideMenu();
+  const { sheetType, orientation, bendRadius, printRotation, isPreviewOpen } = useSideMenu();
+
   const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   // Sync tubes in real-time to URL hash dynamically
@@ -177,6 +179,9 @@ function App() {
 
       {/* Interactive print shop centering modal */}
       {isPrintOpen && <PrintPreviewModal onClose={() => setIsPrintOpen(false)} />}
+
+      {/* Floating draggable/resizable Live Neon Glow Preview */}
+      {isPreviewOpen && <LivePreviewWindow />}
     </>
   );
 }

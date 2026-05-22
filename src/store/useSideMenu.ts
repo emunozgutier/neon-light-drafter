@@ -18,6 +18,7 @@ export interface SideMenuState {
   refImageAspectRatio: number;
   printRotation: number;
   fitMargin: number; // in inches, margin for error subtracted when scaling to fit
+  isPreviewOpen: boolean;
 
   setSheetType: (type: 'letter' | 'a4') => void;
   setOrientation: (orientation: 'portrait' | 'landscape') => void;
@@ -36,6 +37,7 @@ export interface SideMenuState {
   setRefImageAspectRatio: (ratio: number) => void;
   setPrintRotation: (rotation: number) => void;
   setFitMargin: (margin: number) => void;
+  setIsPreviewOpen: (open: boolean) => void;
 }
 
 export const useSideMenu = create<SideMenuState>((set) => ({
@@ -56,6 +58,7 @@ export const useSideMenu = create<SideMenuState>((set) => ({
   refImageAspectRatio: 1.0,
   printRotation: 0,
   fitMargin: 0,
+  isPreviewOpen: false,
 
   setSheetType: (sheetType) => set({ sheetType }),
   setOrientation: (orientation) => set({ orientation }),
@@ -74,4 +77,5 @@ export const useSideMenu = create<SideMenuState>((set) => ({
   setRefImageAspectRatio: (refImageAspectRatio) => set({ refImageAspectRatio }),
   setPrintRotation: (printRotation) => set({ printRotation }),
   setFitMargin: (fitMargin) => set({ fitMargin }),
+  setIsPreviewOpen: (isPreviewOpen) => set({ isPreviewOpen }),
 }));

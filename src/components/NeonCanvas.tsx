@@ -39,6 +39,9 @@ export const NeonCanvas: React.FC = () => {
     setSelectedTubeId,
     tool,
     isPowerOn,
+    saveHistory,
+    undo,
+    redo,
   } = useCanvas();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -166,10 +169,29 @@ export const NeonCanvas: React.FC = () => {
   // Spacebar and standard key keyboard handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement;
+      const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.getAttribute('contenteditable') === 'true');
+
+      // Undo / Redo keybinds
+      if (!isInput) {
+        const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+        if (isCmdOrCtrl && e.key === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+          return;
+        } else if (isCmdOrCtrl && e.key === 'y') {
+          e.preventDefault();
+          redo();
+          return;
+        }
+      }
+
       // Intercept Spacebar to enable canvas panning (block standard page scroll)
       if (e.code === 'Space') {
-        const active = document.activeElement;
-        const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.getAttribute('contenteditable') === 'true');
         if (!isInput) {
           e.preventDefault();
           setSpacePressed(true);
@@ -211,7 +233,7 @@ export const NeonCanvas: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedTubeId, setSelectedTubeId, setTubes, nearbyPoints, setActiveCycleIndex]);
+  }, [selectedTubeId, setSelectedTubeId, setTubes, nearbyPoints, setActiveCycleIndex, undo, redo]);
 
   // Prevent panning/space from getting stuck if browser window loses focus
   useEffect(() => {
@@ -546,7 +568,8 @@ export const NeonCanvas: React.FC = () => {
               }
             })
           };
-        })
+        }),
+        true
       );
       return;
     }
@@ -619,7 +642,8 @@ export const NeonCanvas: React.FC = () => {
               return { ...p, x: newX, y: newY };
             })
           };
-        })
+        }),
+        true
       );
       return;
     }
@@ -640,7 +664,8 @@ export const NeonCanvas: React.FC = () => {
               y: p.y + dy
             }))
           };
-        })
+        }),
+        true
       );
       return;
     }
@@ -1019,6 +1044,7 @@ export const NeonCanvas: React.FC = () => {
     
     if (e.button === 0 && tool === 'select') {
       const mousePos = getSVGCoords(e as unknown as React.MouseEvent<SVGSVGElement>);
+      saveHistory();
       setDraggingTube(tube.id);
       setDragStartPos(mousePos);
       setDragStartPoints([...tube.points]);
@@ -1035,6 +1061,7 @@ export const NeonCanvas: React.FC = () => {
     setSelectedTubeId(tubeId);
     
     if (e.button === 0 && (tool === 'select' || tool === 'bend' || tool === 'weld')) {
+      saveHistory();
       setDraggingNode({ tubeId, pointId });
     }
   };
@@ -1174,6 +1201,7 @@ export const NeonCanvas: React.FC = () => {
                   onHandleMouseDown={(e, tId, pId, type) => {
                     e.stopPropagation();
                     e.preventDefault();
+                    saveHistory();
                     setDraggingHandle({ tubeId: tId, pointId: pId, handleType: type });
                   }}
                   onDeleteNode={handleDeleteNode}
@@ -1195,6 +1223,7 @@ export const NeonCanvas: React.FC = () => {
                       e.stopPropagation();
                       e.preventDefault();
                       const mousePos = getSVGCoords(e as unknown as React.MouseEvent<SVGSVGElement>);
+                      saveHistory();
                       setDraggingTube(tube.id);
                       setDragStartPos(mousePos);
                       setDragStartPoints([...tube.points]);

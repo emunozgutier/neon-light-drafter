@@ -21,7 +21,8 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
 
   const {
     tubes,
-    setTubes
+    setTubes,
+    saveHistory
   } = useCanvas();
 
   // Modal configuration states
@@ -101,7 +102,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
   };
 
   // Micro adjustments in pixels (e.g. 5px steps or 1px shifts)
-  const handleTranslate = (dx: number, dy: number) => {
+  const handleTranslate = (dx: number, dy: number, skipHistory = false) => {
     setTubes(prev =>
       prev.map(t => ({
         ...t,
@@ -111,12 +112,13 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
           y: Math.round(p.y + dy)
         }))
       }))
-    );
+    , skipHistory);
   };
 
   // Interactive mouse dragging of tubes right on the preview sheet SVG
   const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (tubes.length === 0) return;
+    saveHistory();
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
   };
@@ -129,7 +131,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ onClose })
     if (Math.abs(dx) >= 0.5 || Math.abs(dy) >= 0.5) {
       // Compensate for preview sheet visual rotation
       const rotated = rotateVector(dx, dy, printRotation);
-      handleTranslate(rotated.x, rotated.y);
+      handleTranslate(rotated.x, rotated.y, true);
       setDragStart({ x: e.clientX, y: e.clientY });
     }
   };

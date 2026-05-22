@@ -108,11 +108,20 @@ export interface CanvasState {
   selectedTubeId: string | null;
   tool: 'select' | 'bend' | 'cut' | 'weld' | 'add';
   isPowerOn: boolean;
+  
+  // History fields
+  past: string[];
+  future: string[];
 
-  setTubes: (tubes: Tube[] | ((prev: Tube[]) => Tube[])) => void;
+  setTubes: (tubes: Tube[] | ((prev: Tube[]) => Tube[]), skipHistory?: boolean) => void;
   setSelectedTubeId: (id: string | null) => void;
   setTool: (tool: 'select' | 'bend' | 'cut' | 'weld' | 'add') => void;
   setIsPowerOn: (isPowerOn: boolean) => void;
+
+  // History methods
+  saveHistory: () => void;
+  undo: () => void;
+  redo: () => void;
 }
 
 export const useCanvas = create<CanvasState>((set) => {
@@ -122,13 +131,77 @@ export const useCanvas = create<CanvasState>((set) => {
     selectedTubeId: initialTubes[0]?.id || null,
     tool: 'select',
     isPowerOn: true,
+    past: [],
+    future: [],
 
-    setTubes: (tubes) =>
-      set((state) => ({
-        tubes: typeof tubes === 'function' ? tubes(state.tubes) : tubes,
-      })),
+    setTubes: (tubes, skipHistory = false) =>
+      set((state) => {
+        const nextTubes = typeof tubes === 'function' ? tubes(state.tubes) : tubes;
+        
+        // If we are skipping history (e.g. during dragging), or if tubes list is identical, just set the tubes
+        if (skipHistory || JSON.stringify(state.tubes) === JSON.stringify(nextTubes)) {
+          return { tubes: nextTubes };
+        }
+
+        // Otherwise save current state to history and clear future (redo stack)
+        return {
+          past: [...state.past, JSON.stringify(state.tubes)],
+          future: [],
+          tubes: nextTubes,
+        };
+      }),
+
     setSelectedTubeId: (selectedTubeId) => set({ selectedTubeId }),
     setTool: (tool) => set({ tool }),
     setIsPowerOn: (isPowerOn) => set({ isPowerOn }),
+
+    saveHistory: () =>
+      set((state) => {
+        const last = state.past[state.past.length - 1];
+        const currentStr = JSON.stringify(state.tubes);
+        if (last === currentStr) return {};
+        return {
+          past: [...state.past, currentStr],
+          future: [],
+        };
+      }),
+
+    undo: () =>
+      set((state) => {
+        if (state.past.length === 0) return {};
+        const previousStr = state.past[state.past.length - 1];
+        const newPast = state.past.slice(0, state.past.length - 1);
+        const currentStr = JSON.stringify(state.tubes);
+        
+        const decodedTubes: Tube[] = JSON.parse(previousStr);
+        const selectedExists = decodedTubes.some(t => t.id === state.selectedTubeId);
+        const nextSelectedId = selectedExists ? state.selectedTubeId : (decodedTubes[0]?.id || null);
+
+        return {
+          past: newPast,
+          future: [currentStr, ...state.future],
+          tubes: decodedTubes,
+          selectedTubeId: nextSelectedId,
+        };
+      }),
+
+    redo: () =>
+      set((state) => {
+        if (state.future.length === 0) return {};
+        const nextStr = state.future[0];
+        const newFuture = state.future.slice(1);
+        const currentStr = JSON.stringify(state.tubes);
+
+        const decodedTubes: Tube[] = JSON.parse(nextStr);
+        const selectedExists = decodedTubes.some(t => t.id === state.selectedTubeId);
+        const nextSelectedId = selectedExists ? state.selectedTubeId : (decodedTubes[0]?.id || null);
+
+        return {
+          past: [...state.past, currentStr],
+          future: newFuture,
+          tubes: decodedTubes,
+          selectedTubeId: nextSelectedId,
+        };
+      }),
   };
 });

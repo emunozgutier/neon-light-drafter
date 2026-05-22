@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useCanvas } from '../store/useCanvas';
+import { useSideMenu } from '../store/useSideMenu';
+
 
 export const Drafter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -12,8 +14,15 @@ export const Drafter: React.FC = () => {
     setIsPowerOn,
     selectedTubeId,
     setTubes,
-    setSelectedTubeId
+    setSelectedTubeId,
+    past,
+    future,
+    undo,
+    redo
   } = useCanvas();
+
+  const { isPreviewOpen, setIsPreviewOpen } = useSideMenu();
+
 
   const handleDeleteTube = () => {
     if (!selectedTubeId) return;
@@ -182,8 +191,130 @@ export const Drafter: React.FC = () => {
               );
             })}
           </div>
+
+          {/* Undo/Redo Action Row */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '8px',
+            marginTop: '12px',
+            borderTop: '1px solid var(--border-glass)',
+            paddingTop: '12px'
+          }}>
+            <button
+              disabled={past.length === 0}
+              onClick={undo}
+              style={{
+                height: '32px',
+                borderRadius: '6px',
+                backgroundColor: past.length === 0 ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.04)',
+                border: past.length === 0 ? '1px solid rgba(255,255,255,0.02)' : '1px solid var(--border-glass)',
+                color: past.length === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                cursor: past.length === 0 ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                opacity: past.length === 0 ? 0.35 : 1
+              }}
+              onMouseEnter={(e) => {
+                if (past.length > 0) {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                  e.currentTarget.style.borderColor = 'var(--accent-purple)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (past.length > 0) {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)';
+                  e.currentTarget.style.borderColor = 'var(--border-glass)';
+                }
+              }}
+            >
+              ↩️ Undo
+            </button>
+            <button
+              disabled={future.length === 0}
+              onClick={redo}
+              style={{
+                height: '32px',
+                borderRadius: '6px',
+                backgroundColor: future.length === 0 ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.04)',
+                border: future.length === 0 ? '1px solid rgba(255,255,255,0.02)' : '1px solid var(--border-glass)',
+                color: future.length === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                cursor: future.length === 0 ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                opacity: future.length === 0 ? 0.35 : 1
+              }}
+              onMouseEnter={(e) => {
+                if (future.length > 0) {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                  e.currentTarget.style.borderColor = 'var(--accent-purple)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (future.length > 0) {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)';
+                  e.currentTarget.style.borderColor = 'var(--border-glass)';
+                }
+              }}
+            >
+              ↪️ Redo
+            </button>
+          </div>
+
+          {/* Live Neon Preview Toggle Button */}
+          <button
+            onClick={() => setIsPreviewOpen(!isPreviewOpen)}
+            style={{
+              height: '36px',
+              borderRadius: '6px',
+              backgroundColor: isPreviewOpen ? 'var(--accent-purple)' : 'rgba(255,255,255,0.04)',
+              border: isPreviewOpen ? '1px solid transparent' : '1px solid var(--border-glass)',
+              color: isPreviewOpen ? '#0d0f12' : 'var(--text-primary)',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '0.6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: isPreviewOpen ? '0 4px 12px rgba(192, 132, 252, 0.3)' : 'none',
+              width: '100%'
+            }}
+            onMouseEnter={(e) => {
+              if (!isPreviewOpen) {
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.borderColor = 'var(--accent-purple)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isPreviewOpen) {
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.borderColor = 'var(--border-glass)';
+              }
+            }}
+          >
+            ✨ {isPreviewOpen ? 'Hide Glow Preview' : 'Show Glow Preview'}
+          </button>
         </div>
       )}
     </div>
+
   );
 };
