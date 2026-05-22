@@ -16,6 +16,11 @@ interface NeonCanvasProps {
   bendRadius: number;
   useMetric: boolean;
   snapToGrid: boolean;
+  refImageSrc: string | null;
+  refImageOpacity: number;
+  refImageScale: number;
+  refImageX: number;
+  refImageY: number;
 }
 
 export const NeonCanvas: React.FC<NeonCanvasProps> = ({
@@ -30,7 +35,12 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
   sheetCount,
   bendRadius,
   useMetric,
-  snapToGrid
+  snapToGrid,
+  refImageSrc,
+  refImageOpacity,
+  refImageScale,
+  refImageX,
+  refImageY
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1189,7 +1199,7 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
                   </g>
                 )}
 
-                {/* Drag Entire Tube Button (Move Icon) - Rendered only at Endpoints (Start and End nodes) */}
+                {/* Drag Entire Tube Button (Tactile Grip Handle) - Rendered only at Endpoints (Start and End nodes) */}
                 {isEnd && (
                   <g
                     className="drag-tube-btn"
@@ -1213,28 +1223,34 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
                       strokeWidth="1.2"
                       style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}
                     />
-                    {/* Move/Pan Icon inside circle (Horizontal and vertical crosshair arrows) */}
+                    {/* draggble Tactile slider bars */}
                     <line
-                      x1={pt.x - 14.5}
+                      x1={pt.x - 14}
+                      y1={pt.y + 9}
+                      x2={pt.x - 8}
+                      y2={pt.y + 9}
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                    />
+                    <line
+                      x1={pt.x - 14}
                       y1={pt.y + 11}
-                      x2={pt.x - 7.5}
+                      x2={pt.x - 8}
                       y2={pt.y + 11}
                       stroke="#ffffff"
                       strokeWidth="1.2"
+                      strokeLinecap="round"
                     />
                     <line
-                      x1={pt.x - 11}
-                      y1={pt.y + 7.5}
-                      x2={pt.x - 11}
-                      y2={pt.y + 14.5}
+                      x1={pt.x - 14}
+                      y1={pt.y + 13}
+                      x2={pt.x - 8}
+                      y2={pt.y + 13}
                       stroke="#ffffff"
                       strokeWidth="1.2"
+                      strokeLinecap="round"
                     />
-                    {/* Arrowheads for horizontal and vertical lines */}
-                    <polygon points={`${pt.x - 15.5},${pt.y + 11} ${pt.x - 13.5},${pt.y + 9.5} ${pt.x - 13.5},${pt.y + 12.5}`} fill="#ffffff" />
-                    <polygon points={`${pt.x - 6.5},${pt.y + 11} ${pt.x - 8.5},${pt.y + 9.5} ${pt.x - 8.5},${pt.y + 12.5}`} fill="#ffffff" />
-                    <polygon points={`${pt.x - 11},${pt.y + 6.5} ${pt.x - 12.5},${pt.y + 8.5} ${pt.x - 9.5},${pt.y + 8.5}`} fill="#ffffff" />
-                    <polygon points={`${pt.x - 11},${pt.y + 15.5} ${pt.x - 12.5},${pt.y + 13.5} ${pt.x - 9.5},${pt.y + 13.5}`} fill="#ffffff" />
                   </g>
                 )}
               </g>
@@ -1279,6 +1295,18 @@ export const NeonCanvas: React.FC<NeonCanvasProps> = ({
             orientation={orientation}
             sheetCount={sheetCount}
           />
+          
+          {/* Reference Blueprint overlay image tracing guide */}
+          {refImageSrc && (
+            <image
+              href={refImageSrc}
+              x={refImageX}
+              y={refImageY}
+              width={1000 * refImageScale}
+              opacity={refImageOpacity}
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
           
           {/* Ghost point node projection */}
           {hoveredGhostPoint && (

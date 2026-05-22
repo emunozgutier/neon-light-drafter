@@ -72,6 +72,13 @@ function App() {
   const [useMetric, setUseMetric] = useState<boolean>(false);
   const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
 
+  // Reference Image overlays states
+  const [refImageSrc, setRefImageSrc] = useState<string | null>(null);
+  const [refImageOpacity, setRefImageOpacity] = useState<number>(0.4); // Default to 40% (semi-transparent)
+  const [refImageScale, setRefImageScale] = useState<number>(1.0);
+  const [refImageX, setRefImageX] = useState<number>(0);
+  const [refImageY, setRefImageY] = useState<number>(0);
+
   return (
     <div className="app-container">
       {/* Telemetry Panel / Controls Sidebar */}
@@ -94,6 +101,16 @@ function App() {
         setSheetType={setSheetType}
         orientation={orientation}
         setOrientation={setOrientation}
+        refImageSrc={refImageSrc}
+        setRefImageSrc={setRefImageSrc}
+        refImageOpacity={refImageOpacity}
+        setRefImageOpacity={setRefImageOpacity}
+        refImageScale={refImageScale}
+        setRefImageScale={setRefImageScale}
+        refImageX={refImageX}
+        setRefImageX={setRefImageX}
+        refImageY={refImageY}
+        setRefImageY={setRefImageY}
       />
 
       {/* Interactive Vector Editor Workspace */}
@@ -110,6 +127,11 @@ function App() {
         bendRadius={bendRadius}
         useMetric={useMetric}
         snapToGrid={snapToGrid}
+        refImageSrc={refImageSrc}
+        refImageOpacity={refImageOpacity}
+        refImageScale={refImageScale}
+        refImageX={refImageX}
+        refImageY={refImageY}
       />
     </div>
   );

@@ -21,6 +21,16 @@ interface SidebarProps {
   setSheetType: (s: 'letter' | 'a4') => void;
   orientation: 'portrait' | 'landscape';
   setOrientation: (o: 'portrait' | 'landscape') => void;
+  refImageSrc: string | null;
+  setRefImageSrc: (s: string | null) => void;
+  refImageOpacity: number;
+  setRefImageOpacity: (o: number) => void;
+  refImageScale: number;
+  setRefImageScale: (s: number) => void;
+  refImageX: number;
+  setRefImageX: (x: number) => void;
+  refImageY: number;
+  setRefImageY: (y: number) => void;
 }
 
 // Curated high-fidelity neon colors
@@ -53,7 +63,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sheetType,
   setSheetType,
   orientation,
-  setOrientation
+  setOrientation,
+  refImageSrc,
+  setRefImageSrc,
+  refImageOpacity,
+  setRefImageOpacity,
+  refImageScale,
+  setRefImageScale,
+  refImageX,
+  setRefImageX,
+  refImageY,
+  setRefImageY
 }) => {
   const selectedTube = tubes.find(t => t.id === selectedTubeId);
 
@@ -538,6 +558,205 @@ export const Sidebar: React.FC<SidebarProps> = ({
             />
           </div>
         </div>
+      </div>
+
+      {/* 5.5. Reference Blueprint Overlay Image Card */}
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-glass)' }}>
+        <span style={{ fontSize: '11.5px', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
+          Blueprint Tracing Overlay
+        </span>
+        
+        {!refImageSrc ? (
+          <div style={{ marginTop: '10px' }}>
+            <label style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px 12px',
+              borderRadius: '8px',
+              border: '1.5px dashed var(--border-glass)',
+              backgroundColor: 'rgba(255,255,255,0.01)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              textAlign: 'center'
+            }}
+            className="blueprint-dropzone"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent-purple)';
+              e.currentTarget.style.backgroundColor = 'rgba(192, 132, 252, 0.03)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-glass)';
+              e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.01)';
+            }}
+            >
+              <span style={{ fontSize: '24px', marginBottom: '6px' }}>🗺️</span>
+              <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-primary)' }}>Upload Tracing Guide</span>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>PNG, JPG, SVG, or WEBP</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      setRefImageSrc(event.target?.result as string);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                style={{ display: 'none' }}
+              />
+            </label>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
+            
+            {/* Template Status / Controls row */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'rgba(0,0,0,0.2)',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: '1px solid var(--border-glass)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                <span style={{ fontSize: '14px', flexShrink: 0 }}>🖼️</span>
+                <span style={{ fontSize: '11.5px', color: 'var(--accent-green)', fontWeight: '600', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                  Template Loaded
+                </span>
+              </div>
+              <button
+                onClick={() => setRefImageSrc(null)}
+                title="Remove Template"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ef4444',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '4px',
+                  borderRadius: '4px',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                🗑️
+              </button>
+            </div>
+
+            {/* Opacity slider */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <span>Guide Opacity</span>
+                <span style={{ fontFamily: 'var(--mono)', fontWeight: 'bold', color: 'var(--accent-purple)' }}>
+                  {Math.round(refImageOpacity * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.05"
+                max="1.00"
+                step="0.01"
+                value={refImageOpacity}
+                onChange={(e) => setRefImageOpacity(Number(e.target.value))}
+                style={{ width: '100%', height: '4px', borderRadius: '2px', cursor: 'pointer', accentColor: 'var(--accent-purple)' }}
+              />
+            </div>
+
+            {/* Scale slider */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <span>Scale Ratio</span>
+                <span style={{ fontFamily: 'var(--mono)', fontWeight: 'bold', color: 'var(--accent-purple)' }}>
+                  {Math.round(refImageScale * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.10"
+                max="3.00"
+                step="0.05"
+                value={refImageScale}
+                onChange={(e) => setRefImageScale(Number(e.target.value))}
+                style={{ width: '100%', height: '4px', borderRadius: '2px', cursor: 'pointer', accentColor: 'var(--accent-purple)' }}
+              />
+            </div>
+
+            {/* Position X Offset slider */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <span>Horizontal Offset (X)</span>
+                <span style={{ fontFamily: 'var(--mono)', fontWeight: 'bold', color: 'var(--accent-purple)' }}>
+                  {refImageX > 0 ? `+${refImageX}` : refImageX}px
+                </span>
+              </div>
+              <input
+                type="range"
+                min="-2000"
+                max="2000"
+                step="5"
+                value={refImageX}
+                onChange={(e) => setRefImageX(Number(e.target.value))}
+                style={{ width: '100%', height: '4px', borderRadius: '2px', cursor: 'pointer', accentColor: 'var(--accent-purple)' }}
+              />
+            </div>
+
+            {/* Position Y Offset slider */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <span>Vertical Offset (Y)</span>
+                <span style={{ fontFamily: 'var(--mono)', fontWeight: 'bold', color: 'var(--accent-purple)' }}>
+                  {refImageY > 0 ? `+${refImageY}` : refImageY}px
+                </span>
+              </div>
+              <input
+                type="range"
+                min="-2000"
+                max="2000"
+                step="5"
+                value={refImageY}
+                onChange={(e) => setRefImageY(Number(e.target.value))}
+                style={{ width: '100%', height: '4px', borderRadius: '2px', cursor: 'pointer', accentColor: 'var(--accent-purple)' }}
+              />
+            </div>
+
+            {/* Reset transformation coordinates */}
+            <button
+              onClick={() => {
+                setRefImageScale(1.0);
+                setRefImageX(0);
+                setRefImageY(0);
+              }}
+              style={{
+                width: '100%',
+                height: '32px',
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--border-glass)',
+                color: 'var(--text-secondary)',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+                marginTop: '4px'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+            >
+              Reset Guide Alignment 🔄
+            </button>
+
+          </div>
+        )}
       </div>
 
       {/* 6. Material telemetry and planner (Material Monitor) */}
