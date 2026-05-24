@@ -216,7 +216,47 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenPrint }) => {
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            🎯 Center Design
+            🎯 Center
+          </button>
+
+          {/* Share Link Button */}
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href);
+              alert('Link copied to clipboard!');
+            }}
+            title="Share your design link"
+            style={{
+              flex: 1,
+              height: '34px',
+              borderRadius: '6px',
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid var(--border-glass)',
+              color: 'var(--text-primary)',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              letterSpacing: '0.3px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+              e.currentTarget.style.color = '#bae6fd';
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(56, 189, 248, 0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+              e.currentTarget.style.borderColor = 'var(--border-glass)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            🔗 Share
           </button>
         </div>
       </div>
