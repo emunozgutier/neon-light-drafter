@@ -28,6 +28,7 @@ export const Drafter: React.FC = () => {
     if (!selectedTubeId) return;
     setTubes(prev => prev.filter(t => t.id !== selectedTubeId));
     setSelectedTubeId(null);
+    setTool('select');
   };
 
   return (
@@ -118,16 +119,13 @@ export const Drafter: React.FC = () => {
           {/* Toolkit Grid */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(6, 1fr)',
+            gridTemplateColumns: 'repeat(3, 1fr)',
             gap: '6px'
           }}>
             {[
               { id: 'select', icon: '🖱️', label: 'Select' },
-              { id: 'bend', icon: '🟣', label: 'Bend' },
-              { id: 'cut', icon: '✂️', label: 'Cut' },
-              { id: 'weld', icon: '🟢', label: 'Weld' },
               { id: 'add', icon: '➕', label: 'Add' },
-              { id: 'delete', icon: '🗑️', label: 'Delete', isAction: true }
+              { id: 'delete', icon: '🗑️', label: 'Remove', isAction: true }
             ].map(t => {
               const isActive = tool === t.id;
               const isHovered = hoveredToolId === t.id;
