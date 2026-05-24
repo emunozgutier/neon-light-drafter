@@ -38,6 +38,7 @@ export const NeonCanvas: React.FC = () => {
     selectedTubeId,
     setSelectedTubeId,
     tool,
+    setTool,
     isPowerOn,
     saveHistory,
     undo,
@@ -574,14 +575,12 @@ export const NeonCanvas: React.FC = () => {
               if (handleType === 'in') {
                 return {
                   ...p,
-                  handleIn: { dx, dy },
-                  handleOut: { dx: -dx, dy: -dy } // Symmetric angle & length mirroring
+                  handleIn: { dx, dy }
                 };
               } else {
                 return {
                   ...p,
-                  handleOut: { dx, dy },
-                  handleIn: { dx: -dx, dy: -dy } // Symmetric angle & length mirroring
+                  handleOut: { dx, dy }
                 };
               }
             })
@@ -825,19 +824,23 @@ export const NeonCanvas: React.FC = () => {
       
       if (tool === 'add') {
         const id = generateId();
-        // Create a horizontal 4 feet (48") tube centered on the click
-        const lengthPx = 48 * SCALE;
+        // Create a horizontal 1 foot (12") tube centered on the click
+        const lengthPx = 12 * SCALE;
         
         let x1 = mousePos.x - lengthPx / 2;
+        let xMid = mousePos.x;
         let x2 = mousePos.x + lengthPx / 2;
         let y = mousePos.y;
         
         if (snapToGrid) {
           const snapUnit = useMetric ? (SCALE / 2.54) : (1.0 * SCALE);
           x1 = Math.round(x1 / snapUnit) * snapUnit;
+          xMid = Math.round(xMid / snapUnit) * snapUnit;
           x2 = Math.round(x2 / snapUnit) * snapUnit;
           y = Math.round(y / snapUnit) * snapUnit;
         }
+
+        const handleLen = lengthPx / 6;
 
         const newTube: Tube = {
           id,
@@ -849,20 +852,28 @@ export const NeonCanvas: React.FC = () => {
               id: generateId(),
               x: x1,
               y: y,
-              handleIn: { dx: -lengthPx / 6, dy: 0 },
-              handleOut: { dx: lengthPx / 6, dy: 0 }
+              handleIn: { dx: -handleLen, dy: 0 },
+              handleOut: { dx: handleLen, dy: 0 }
+            },
+            {
+              id: generateId(),
+              x: xMid,
+              y: y,
+              handleIn: { dx: -handleLen, dy: 0 },
+              handleOut: { dx: handleLen, dy: 0 }
             },
             {
               id: generateId(),
               x: x2,
               y: y,
-              handleIn: { dx: -lengthPx / 6, dy: 0 },
-              handleOut: { dx: lengthPx / 6, dy: 0 }
+              handleIn: { dx: -handleLen, dy: 0 },
+              handleOut: { dx: handleLen, dy: 0 }
             }
           ]
         };
         setTubes(prev => [...prev, newTube]);
         setSelectedTubeId(id);
+        setTool('select');
       }
     }
   };
@@ -1421,7 +1432,7 @@ export const NeonCanvas: React.FC = () => {
           {tool === 'bend' && '🟣 Drag control nodes to bend glass. Right-click node to delete.'}
           {tool === 'cut' && '✂️ Hover over glass segments and click to slice tube.'}
           {tool === 'weld' && '🟢 Drag endpoints together to snap & weld separate tubes.'}
-          {tool === 'add' && '➕ Click on sheets to spawn a new 4ft horizontal tube.'}
+          {tool === 'add' && '➕ Click on sheets to spawn a new 1ft horizontal tube.'}
         </span>
         <span style={{ fontSize: '11px', color: 'var(--accent-blue)', marginTop: '4px', borderTop: '1px solid var(--border-glass)', paddingTop: '4px' }}>
           💡 Scroll wheel zooms. Hold Space + Drag or press Middle Mouse button to pan.
